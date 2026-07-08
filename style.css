@@ -1,0 +1,237 @@
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'Poppins',sans-serif;
+}
+
+html{
+scroll-behavior:smooth;
+}
+
+body{
+background:#090909;
+color:#fff;
+overflow-x:hidden;
+}
+
+.background-logo{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:url("img/logo.jpg") center center no-repeat;
+background-size:55%;
+opacity:.05;
+z-index:-1;
+}
+
+nav{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:20px 8%;
+background:#111;
+position:sticky;
+top:0;
+z-index:999;
+}
+
+.logo img{
+width:140px;
+}
+
+nav ul{
+display:flex;
+list-style:none;
+gap:30px;
+}
+
+nav ul li a{
+color:#fff;
+text-decoration:none;
+font-weight:600;
+transition:.3s;
+}
+
+nav ul li a:hover{
+color:#d4af37;
+}
+
+.btnWhatsapp,
+.btnPrincipal{
+display:inline-block;
+padding:15px 30px;
+background:linear-gradient(90deg,#d4af37,#f7d774);
+color:#111;
+font-weight:bold;
+border-radius:40px;
+text-decoration:none;
+transition:.3s;
+}
+
+.btnWhatsapp:hover,
+.btnPrincipal:hover{
+transform:scale(1.05);
+}
+
+.hero{
+text-align:center;
+padding:80px 20px;
+}
+
+.heroLogo{
+width:420px;
+max-width:95%;
+margin-bottom:20px;
+filter:drop-shadow(0 0 18px rgba(212,175,55,.7));
+}
+
+.hero h1{
+font-size:48px;
+color:#d4af37;
+margin-bottom:15px;
+}
+
+.hero p{
+font-size:20px;
+color:#ddd;
+margin-bottom:30px;
+}
+
+#servicios{
+max-width:1200px;
+margin:auto;
+padding:70px 20px;
+}
+
+#servicios h2{
+text-align:center;
+font-size:38px;
+color:#d4af37;
+margin-bottom:40px;
+}
+
+.cards{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+gap:25px;
+}
+
+.card{
+background:#181818;
+padding:25px;
+border-radius:15px;
+border-left:5px solid #d4af37;
+cursor:pointer;
+transition:.35s;
+}
+
+.card:hover{
+transform:translateY(-8px);
+box-shadow:0 0 20px rgba(212,175,55,.45);
+}
+
+.card h3{
+color:#d4af37;
+margin-bottom:12px;
+}
+
+.modal{
+display:none;
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.85);
+justify-content:center;
+align-items:center;
+z-index:9999;
+}
+
+.modal-content{
+background:#151515;
+width:90%;
+max-width:700px;
+padding:35px;
+border-radius:18px;
+border:2px solid #d4af37;
+animation:fade .3s ease;
+}
+
+@keyframes fade{
+from{opacity:0;transform:translateY(30px);}
+to{opacity:1;transform:translateY(0);}
+}
+
+.modal-content h2{
+color:#d4af37;
+margin-bottom:15px;
+}
+
+.modal-content h3{
+margin-top:20px;
+color:#f7d774;
+}
+
+.modal-content ul{
+padding-left:20px;
+margin-top:10px;
+}
+
+.modal-content li{
+margin-bottom:8px;
+}
+
+.cerrar{
+float:right;
+font-size:34px;
+cursor:pointer;
+}
+
+#contacto{
+text-align:center;
+padding:80px 20px;
+}
+
+footer{
+background:#111;
+padding:30px;
+text-align:center;
+color:#bbb;
+}
+
+.footer-links{
+margin-bottom:15px;
+}
+
+.footer-links a{
+color:#d4af37;
+text-decoration:none;
+margin:0 12px;
+}
+
+.footer-links a:hover{
+text-decoration:underline;
+}
+
+@media(max-width:768px){
+
+nav{
+flex-direction:column;
+gap:18px;
+}
+
+nav ul{
+flex-direction:column;
+text-align:center;
+}
+
+.heroLogo{
+width:300px;
+}
+
+.hero h1{
+font-size:34px;
+}
+
+}
