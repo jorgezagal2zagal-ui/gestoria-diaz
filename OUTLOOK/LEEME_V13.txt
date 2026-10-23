@@ -1,0 +1,7 @@
+GESTORÍA DÍAZ OUTLOOK V13
+- Corregido un error de variable no inicializada que podía cerrar el navegador cuando llegaba a la bandeja de entrada sin remitente configurado.
+- Agregado correo en uso siempre visible y botón COPIAR CORREO; copia al portapapeles de Windows.
+- Ante errores no controlados de Playwright el bot guarda diagnóstico en GestoriaDiaz_Outlook_error.txt en carpeta de usuario Windows.
+- Mantiene la lista NUEVO/USADO, TXT, 60 s, 429, incógnito y enlace IMSS.
+- Probado sin inicio de sesión Microsoft real. Debes probar en Windows.
+Si el navegador vuelve a cerrarse, envía solo la descripción del error del diagnóstico sin contraseñas ni códigos.

@@ -1,0 +1,7 @@
+{
+  "component": "OUTLOOK",
+  "version": "15.1",
+  "status": "synthetic-browser-local-link-tested-windows-pending",
+  "python_tested": "3.12.14",
+  "protocol": 1
+}

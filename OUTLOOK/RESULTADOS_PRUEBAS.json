@@ -1,0 +1,57 @@
+{
+  "component": "OUTLOOK",
+  "version": "15.1",
+  "tested_date_utc": "2026-10-23",
+  "python_tested": "3.12.14",
+  "playwright_tested": "1.62.0",
+  "unit_tests": {
+    "previous_v15": 89,
+    "new_session_profile_link": 17,
+    "total": 106,
+    "all_passed": true
+  },
+  "additional_checks": {
+    "queue_and_cooldown_assertions": "passed",
+    "queue_migration_assertions": "passed",
+    "real_local_http_link": "passed",
+    "chromium_and_http_end_to_end": "passed with synthetic pages and messages",
+    "native_profile_decline": "simulated accessibility controls only",
+    "stop_prevents_late_native_click": "passed",
+    "unrelated_browser_and_security_dialogs_untouched": "passed",
+    "recovery_watcher_pauses_on_429": "passed"
+  },
+  "browser_link_checks": [
+    "synthetic Microsoft email and password forms",
+    "passkey creation URL does not trigger unavailable-password restart",
+    "one private context and one page remain open after a transient loop error",
+    "transient reader failure does not close the session",
+    "selected used account with an open mailbox can be reserved over actual HTTP",
+    "actual visible DOM sender, timestamp and six-digit code validation",
+    "failed local delivery retries the same code in memory for the same request",
+    "HTTP client receives a code with a leading zero",
+    "acknowledgment clears the code and reports confirmed receipt",
+    "completion keeps the browser open and permits another reservation",
+    "explicit stop closes the page"
+  ],
+  "common_password_storage": "Windows DPAPI in user-local SQLite; no password embedded in package. Native DPAPI remains unverified on Linux.",
+  "visible_gui_checks": {
+    "Tk_and_Chromium_auto_start": "passed with synthetic pages",
+    "Tk_and_Chromium_start_button": "passed with synthetic pages",
+    "private_context_and_same_credentials": "passed",
+    "password_unavailable_retry": "passed",
+    "account_dashboard_to_inbox": "passed",
+    "stop_disables_automation": "passed",
+    "cooldown_seconds": 30
+  },
+  "windows_dependency_resolution": "17 pinned wheels downloaded for Windows x86-64 / CPython 3.12, including uiautomation and comtypes. Native installation not executed. Some pinned dependencies require Python 3.12; installer and entry point enforce that minimum and 64-bit Python.",
+  "unverified": [
+    "Windows BAT execution",
+    "Native Windows DPAPI",
+    "Windows native Chrome/Edge accessibility tree and actual No thanks invocation",
+    "Windows browser launch",
+    "Real Microsoft account and provider errors",
+    "Actual separate IMSS bot application and physical device"
+  ],
+  "no_real_accounts_used": true,
+  "all_browser_requests_intercepted": true
+}

@@ -1,0 +1,23 @@
+OUTLOOK AUTOMÁTICO V15.1 — GESTORÍA DÍAZ
+
+Cierra la versión anterior. Extrae este ZIP en una carpeta nueva.
+Abre OUTLOOK\ABRIR_OUTLOOK.bat. Preparará el entorno si falta.
+Requiere Python 3.12 o posterior de 64 bits; se recomienda 3.12.
+
+Con el correo elegido y la contraseña guardada se inicia el acceso automáticamente.
+Si todavía no hay contraseña, ve a AJUSTES > Contraseña > GUARDAR PARA TODOS.
+Si todavía no hay correos, pulsa IMPORTAR TXT. Elige la cuenta en la lista.
+INICIAR realiza el acceso completo; DETENER pausa la automatización.
+
+Esta versión rechaza las ofertas reconocidas de perfil/sincronización del navegador
+con No, gracias/Cancelar. La clave de paso de Seguridad de Windows requiere tu decisión.
+La pestaña permanece abierta ante errores temporales de lectura.
+El bot IMSS puede reservar la sesión que ya está abierta. Requiere el enlace local
+compatible, el mismo usuario/equipo y el remitente exacto configurado en AJUSTES.
+
+Enfriamiento: 30 segundos entre sesiones.
+Los estados y errores quedan visibles en el panel principal.
+Remitente IMSS, contraseña y diagnóstico están en AJUSTES.
+
+Consulta README_PRIMERO.md y RESULTADOS_PRUEBAS.json para los detalles.
+El acceso con una cuenta real y el entorno Windows requieren comprobación en tu PC.
