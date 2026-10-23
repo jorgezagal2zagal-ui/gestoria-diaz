@@ -1,0 +1,41 @@
+GESTORÍA DÍAZ — OUTLOOK V14.2 — CONTRASEÑA COMÚN GUARDADA
+
+CÓMO ACTIVARLA UNA SOLA VEZ EN TU PC
+1. Cierra la versión anterior y extrae este ZIP en una carpeta nueva.
+2. Ejecuta OUTLOOK\INSTALAR.bat y después OUTLOOK\ABRIR_OUTLOOK.bat.
+3. Escribe en el campo Contraseña la clave común que quieras usar.
+4. Pulsa GUARDAR PARA TODOS.
+5. Verás «Contraseña común guardada: se usará en todos los correos».
+   El campo de contraseña se vacía; no necesitas volver a escribirla.
+
+Se usa la contraseña común en todos los correos actuales y futuros, en el acceso
+manual y en el automático autorizado por solicitud IMSS. Sigue disponible después
+de cerrar el programa o reiniciar Windows, bajo el mismo usuario de Windows.
+También se aplica si importas posteriormente un TXT con contraseñas diferentes.
+Mientras esté activa, tiene prioridad sobre el campo escrito y las claves
+individuales. El reintento de acceso de V14.1 continúa funcionando.
+
+La clave se guarda mediante el cifrado DPAPI de tu propio usuario de Windows.
+El ZIP no contiene una contraseña incorporada: ese cifrado se realiza en tu PC.
+No se guarda la contraseña en ajustes JSON ni en los registros del programa.
+La tabla nueva se agrega a la base existente sin borrar tus cuentas o claves.
+
+CAMBIARLA U OLVIDARLA
+- Para cambiarla, escribe la nueva clave y pulsa GUARDAR PARA TODOS otra vez.
+- OLVIDAR COMÚN quita la configuración común y vuelve a permitir las claves
+  individuales que estuvieran guardadas anteriormente.
+- La casilla de guardado individual solo se aplica cuando no hay clave común.
+
+Guardar aquí una clave configura el bot; no cambia la contraseña de las cuentas
+en Microsoft. Las cuentas deben tener ya la contraseña que hayas elegido.
+
+COMPROBACIONES
+python validar.py / PRUEBAS.bat: 72 pruebas unittest superadas (17 nuevas), más
+las comprobaciones existentes de cola, migración y enlace HTTP local.
+Se verificaron persistencia, prioridad en cuentas actuales y futuras, cambio y
+eliminación, migración de la base, inicio manual/automático y errores al guardar.
+Las pruebas usan datos ficticios y un sustituto de DPAPI en Linux. El cifrado
+DPAPI nativo, el panel Windows y el acceso a cuentas Microsoft reales requieren
+comprobación en tu PC.
+
+Los documentos anteriores incluidos describen las versiones previas.
