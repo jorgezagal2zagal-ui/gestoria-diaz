@@ -1,0 +1,27 @@
+GESTORÍA DÍAZ · OUTLOOK V29 + IMSS V22
+
+Basado en el segundo video del 23 de octubre de 2026:
+- Se confirma que el mensaje IMSS aparece en la bandeja.
+- V28 buscaba un atributo ISO de fecha que Outlook Web a veces no ofrece.
+- V29 agrega una alternativa limitada para el encabezado visible con fecha
+  completa, únicamente durante una solicitud IMSS reciente, con un correo
+  abierto, remitente exacto y un único código de seis dígitos.
+- No almacena códigos en disco ni envía el código a terceros: lo coloca
+  en el enlace local 127.0.0.1:8797 para la solicitud IMSS exacta.
+- Los tres rechazos opcionales de V28 se mantienen: no clave de paso nueva,
+  no guardar contrasena del navegador, no mantener sesion iniciada.
+- El ejecutable IMSS V22 se conserva IDENTICO al que ya funcionaba.
+
+IMPORTANTE:
+- Cierra otras versiones del bot Outlook antes de usar V29: usan el mismo puerto.
+- Abre Outlook V29 e IMSS V22 en la MISMA computadora y sesión Windows.
+- Primero confirma en Outlook el estado Enlace activo; en IMSS debe haber una
+  solicitud pendiente con la misma cuenta que abrió Outlook.
+- Estados: ESPERANDO_CODIGO = aún sin entrega, CODIGO_DISPONIBLE = Outlook
+  detectó el código, CODIGO_ENVIADO_AL_CELULAR = IMSS confirmó recepción.
+- Si el mensaje aún no tiene encabezado de fecha completo, se requiere
+  revisar manualmente; NO se copiará un código antiguo o no verificable.
+- No se han probado los cambios en Outlook real ni en los emuladores desde aquí.
+- Windows puede mostrar variantes nativas no reconocidas de los avisos: son
+  ofertas opcionales y no se debe omitir ninguna verificación de identidad.
+- Las contraseñas guardadas por usuario Windows no están dentro del ZIP.

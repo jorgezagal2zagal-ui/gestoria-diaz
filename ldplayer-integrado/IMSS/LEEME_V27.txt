@@ -1,0 +1,1 @@
+IMSS V27: optimiza comandos ADB para CURP/correo, conserva confirmación de ambos campos y puente 4 emuladores. Reduce espera al recibir código Outlook. No cambia conexión ADB V7. Compatible con Outlook V40.

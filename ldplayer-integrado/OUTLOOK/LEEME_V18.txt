@@ -1,0 +1,18 @@
+GESTORÍA DÍAZ — OUTLOOK V18
+
+1. Cierra las versiones anteriores de Outlook. Deja el bot IMSS V17 tal como está.
+2. Ejecuta INICIAR_OUTLOOK_V18.bat (o el lanzador individual .pyw).
+3. Outlook V18 abre un perfil de Google Chrome DEDICADO Y SEPARADO por correo. NO accede
+   al Chrome personal que usas a diario ni copia cookies de él. La primera vez puede
+   requerir inicio de sesión manual o una validación de Microsoft.
+4. Si ya hubo un acceso válido, las siguientes aperturas pueden reutilizar la sesión.
+5. Si Microsoft indica Too Many Requests / 429, se detienen todos los inicios y
+   se aplica un enfriamiento local de 30 minutos. Microsoft puede limitar más tiempo.
+   No intenta evadir restricciones cambiando de cuenta, IP ni navegador.
+6. El enlace IMSS y la lista de correos existentes permanecen sin modificaciones.
+7. Verifica primero con UNA cuenta autorizada antes de ejecutar más trámites.
+
+Los perfiles del navegador guardan información de la sesión en Windows. Usa
+una cuenta de Windows protegida y no compartas esa carpeta. No borres tu base de correos.
+
+Probado con pruebas locales simuladas; no probado contra Microsoft ni tu Windows.

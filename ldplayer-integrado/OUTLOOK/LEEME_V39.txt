@@ -1,0 +1,29 @@
+GESTORIA DIAZ · OUTLOOK V39 - CÓDIGO IMSS DE UN SOLO USO
+
+NUEVO:
+- Si Outlook abre el correo de verificación pero NO muestra fecha técnica,
+  la cuenta de un solo uso permite entregar el PRIMER código IMSS de 6 dígitos
+  para un folio activo reciente. Verifica remitente exacto y contenido IMSS.
+  ADVERTENCIA: Si la cuenta tiene un correo IMSS VIEJO sin fecha, no se puede
+  demostrar frescura; importa únicamente cuentas nuevas sin mensajes IMSS previos.
+- Se mantiene UNA entrega por folio al enlace del Android correspondiente.
+  Nunca se reutiliza un correo para otro trámite; la cuenta permanece OCUPADO
+  hasta que IMSS confirme que terminó o se gestione una cancelación.
+- Botón visible ELIMINAR CORREOS REGISTRADOS (MANUAL): borrar lista local,
+  contraseñas individuales DPAPI y contraseña común si la lista quedó vacía.
+  El botón NO elimina buzones ni mensajes reales de Microsoft.
+  Si hay trámites o correos OCUPADO se cancela el borrado, sin eliminar parcialmente.
+- En el primer arranque ofrece vaciar el lote anterior, SIEMPRE con confirmación.
+- Chrome sigue visible. 4 Outlook ↔ 4 Android. No se cambia IMSS V26.
+
+INSTRUCCIONES:
+1. Espera a que terminen los trámites pendientes y cierra Outlook anterior.
+2. Extrae el ZIP en una carpeta nueva.
+3. Ejecuta ABRIR_OUTLOOK_V39.bat. Mantén IMSS V26 abierto.
+4. Si quieres importar lote nuevo, acepta el borrado al primer arranque o pulsa
+   ELIMINAR CORREOS REGISTRADOS (MANUAL); después IMPORTAR TXT.
+5. Para cuentas OCUPADO, primero termina/cancela los trámites en IMSS.
+6. Para verificar entrega pulsa VER DIAGNÓSTICO: no almacena códigos ni claves.
+
+Pruebas de software locales realizadas; la operación Windows/Chrome/LDPlayer
+requiere prueba real con tus cuentas autorizadas.

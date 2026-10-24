@@ -1,0 +1,16 @@
+GESTORÍA DÍAZ · IMSS V23 / 4 EMULADORES LDPLAYER
+
+- Permite conectar, abrir y mostrar 4 instancias Android: emulador 1, 2, 3 y 4.
+- El selector reconoce emulator-5554, emulator-5556, emulator-5558 y emulator-5560,
+  o sus puertos de conexión local 5555, 5557, 5559 y 5561.
+- Evita contabilizar dos veces los alias de una misma instancia.
+- El motor original gestoria_prueba_v7.py sigue EXACTAMENTE igual que V22.
+- Conservar el enlace a Outlook y las confirmaciones de verificación.
+- Outlook procesa UNA cuenta / verificación a la vez, por seguridad, incluso
+  con cuatro dispositivos conectados. El resto permanece en cola.
+- IMSS V23 se ejecuta junto con Outlook V30, en el mismo Windows.
+- Tus cuentas / contraseñas locales no vienen incluidas en el ZIP.
+- Cierra IMSS V22 antes de usar esta versión. Los folios incompletos deben
+  resolverse antes de cambiar de versión.
+- Debes abrir las cuatro ventanas de LDPlayer antes de pulsar conectar.
+- Verifica visualmente los cuatro Android: sin acceso al Windows real desde aquí.

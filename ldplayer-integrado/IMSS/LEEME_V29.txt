@@ -1,0 +1,22 @@
+GESTORÍA DÍAZ - IMSS V29 - CORRECCIÓN ENFOQUE DE CORREO
+
+EN LAS FOTOS el primer LDPlayer muestra CURP escrita, pero correo vacío.
+Outlook V41 abre correctamente: NO se ha modificado el programa Outlook.
+
+Esta versión modifica únicamente el proceso de captura del formulario IMSS.
+- Mantiene ADB V7 y el trabajo con cuatro emuladores en paralelo.
+- Separa el toque del campo y la escritura, esperando que Android enfoque el campo.
+- Oculta el teclado tras escribir CURP, vuelve a leer posiciones reales del correo.
+- Escribe el correo, verifica su contenido con la accesibilidad Android.
+- Reintenta el correo una vez si no quedó escrito, sin volver a escribir CURP.
+- Si no puede verificar ambos datos, NO pulsa Iniciar sesión.
+- Conserva la comunicación con Outlook sin alterar sus archivos ni canales.
+
+INSTALACIÓN:
+1. Termina primero los trabajos activos de IMSS. Cierra solamente el IMSS anterior.
+2. Extrae el ZIP individual, ejecuta ABRIR_IMSS_V29.bat en Windows.
+3. Mantén Outlook V41 como lo tienes funcionando.
+4. Prueba primero con UNA CURP de un titular que haya autorizado el trámite.
+5. Si falla, envía el estado del registro, sin CURP ni correo completos.
+
+LIMITACIÓN: validado con pruebas simuladas, no con tu LDPlayer real.

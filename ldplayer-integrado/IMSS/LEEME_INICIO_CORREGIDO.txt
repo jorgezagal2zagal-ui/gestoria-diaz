@@ -1,0 +1,14 @@
+GESTORIA DIAZ — IMSS DIGITAL V22 — CORRECCION DE ARRANQUE
+
+Opcion mas sencilla: descargar y abrir Gestoria_Diaz_IMSS_V22_INICIO_CORREGIDO.pyw.
+No se necesita extraer ZIP y NO se utiliza INSTALAR.bat.
+
+El iniciador desempaqueta el programa en el directorio local del usuario de Windows
+ y abre el panel V22 directamente con el Python instalado. No modifica datos,
+ correos, contraseñas ni Outlook. Solo cambia el arranque.
+
+Alternativa: extrae el ZIP y ejecuta INICIAR_IMSS_V22.bat.
+Si Windows no tiene Python o Tkinter, muestra un error legible.
+
+Para verificar: no debe verse el error que contiene INSTALAR.bat.
+La deteccion de ADB se prueba en tu propia PC, con LDPlayer abierto.

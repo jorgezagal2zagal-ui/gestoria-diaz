@@ -1,0 +1,13 @@
+GESTORÍA DÍAZ · OUTLOOK V30 / IMSS V23
+
+Se mantiene el motor de Outlook V29 y su entrega de códigos al enlace local.
+No se crean cuatro inicios de sesión Microsoft simultáneos: el correo de
+verificación se entrega exclusivamente al folio asignado en IMSS V23.
+Las cuatro instancias Android pueden estar conectadas; una solicitud de
+Outlook está activa a la vez y las demás se procesan cuando quede libre.
+
+Se mantienen: No a clave de paso, No guardar contraseña, No mantener sesión;
+verificación adicional obligatoria de Microsoft requiere intervención.
+
+Usa V30 Outlook y V23 IMSS en la MISMA PC; cierra otras versiones antes.
+El entorno de Windows y LDPlayer no se pudieron ejecutar en esta sesión.

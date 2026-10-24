@@ -1,0 +1,14 @@
+Gestoría Díaz — Outlook V24 (pausa explicada)
+
+- V24 NO cambia la seguridad ni el flujo de inicio de sesión de Microsoft.
+- Después de una bandeja confirmada: enfriamiento local 10 segundos.
+- Después de un inicio no confirmado, rechazo, bloqueo, o verificación adicional: 30 segundos o más.
+- Microsoft 429 detiene la cola: no se abre otra cuenta para eludir límites.
+- El texto del panel explica qué pausa se está cumpliendo; ya no promete 10 segundos para todos los casos.
+- No modifica IMSS, ADB, ni la lista compartida de correos.
+
+Para usarlo:
+1) Cierra todas las versiones previas del bot Outlook (no tu Chrome personal).
+2) Abre V24 y mantén IMSS V22 como antes.
+3) Si ves 30 segundos: esa sesión no consiguió llegar correctamente a la bandeja.
+4) Usa COPIAR DIAGNÓSTICO para identificar fallos del navegador sin credenciales.

@@ -1,0 +1,9 @@
+GESTORIA DIAZ · OUTLOOK V21
+
+CAMBIOS: Detecta el mensaje Microsoft «Ya casi está / Solo un paso más / Enviar un código a...» en una página oficial. Aparta esa cuenta de los correos disponibles y NO automatiza ni intenta eludir la verificación adicional. Registra el motivo real y comparte el estado BLOQUEADA (inhabilitada para el bot) con IMSS V20, que ya lo reconoce. Se conserva la base, lista y contraseñas cifradas.
+
+El botón «COPIAR CORREOS BLOQUEADOS / VERIFICACIÓN» copia solo direcciones, una por línea. No copia contraseñas. La lista queda persistida y se previene que una reimportación accidental de la misma dirección la vuelva a poner como DISPONIBLE.
+
+Cierra primero versiones anteriores de Outlook para no competir por el puerto local; inicia V21 y deja IMSS V20 como está. No es necesario importar otra vez el TXT. Ante «Too Many Requests» se pausa sin rotar cuentas.
+
+Se comprobó detección con contenido simulado y tests de base de datos; falta probar en tu PC con Microsoft.

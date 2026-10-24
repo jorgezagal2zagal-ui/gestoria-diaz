@@ -1,0 +1,32 @@
+GESTORÍA DÍAZ - Outlook V42 + IMSS V31
+
+NOVEDADES:
+- Outlook prepara hasta 4 cuentas (ventanas Chrome visibles), cada una vinculada
+  a un Android. No se ocupa Android mientras Microsoft no confirme la bandeja.
+- Si Microsoft solicita agregar OBLIGATORIAMENTE un correo de recuperación,
+  el bot NO omite la seguridad: marca ERROR y aparta esa cuenta.
+- Tras detectar la bandeja, muestra LISTO para el Android de ese canal.
+- IMSS solo toma un correo cuya bandeja Outlook ya haya sido verificada.
+- Cuando IMSS confirma haber recibido y superado el código, el correo de un
+  solo uso se retira del catálogo local y se borra su secreto individual.
+- Se conserva una marca irreversible local (HMAC con secreto local) de correos
+  usados para impedir que se vuelvan a importar accidentalmente.
+- Un correo ERROR sigue en REVISAR para diagnosticarlo y no se reutiliza.
+- La cuenta Microsoft y sus mensajes NO se borran.
+- IMSS conserva V30 autorecuperación y el motor ADB V7 original.
+
+INSTALAR:
+1. Cierra bots anteriores, termina o cancela las solicitudes en proceso.
+2. Extrae el ZIP en Windows, por ejemplo en el Escritorio.
+3. Ejecuta ABRIR_OUTLOOK_V42.bat y espera sus cuatro sesiones.
+4. Importa tu TXT de correos autorizados. Outlook empezará a preparar buzones.
+5. Ejecuta ABRIR_IMSS_V31.bat, conecta 4 LDPlayer, agrega CURP autorizadas.
+6. Comprueba que Outlook marque BANDEJA LISTA antes de comenzar IMSS.
+
+ATENCIÓN:
+- No teclea códigos de acceso de Microsoft ni evita verificaciones obligatorias.
+- Pruebas unitarias locales pasadas; NO probado con Microsoft/LDPlayer reales.
+- Los datos de cuentas de tu computadora NO se incluyen en este ZIP.
+- V31 funciona junto con Outlook V42; NO mezclar con versiones anteriores.
+- Una cuenta usada no volverá a la cola hasta que el usuario restablezca
+  intencionalmente su historial local de la aplicación.

@@ -1,0 +1,45 @@
+GESTORÍA DÍAZ — OUTLOOK V14.1 — REINTENTO DEL ACCESO CON CONTRASEÑA
+
+USO EN WINDOWS
+1. Conserva el ZIP original y cierra la versión anterior del programa.
+2. Extrae este ZIP en una carpeta nueva.
+3. Ejecuta OUTLOOK\INSTALAR.bat si todavía no instalaste las dependencias en esa
+   carpeta. Después abre OUTLOOK\ABRIR_OUTLOOK.bat como de costumbre.
+4. Inicia el acceso con tu cuenta. La recuperación funciona automáticamente.
+
+QUÉ CAMBIÓ
+Cuando la página oficial de Microsoft muestra un aviso como «El inicio de sesión
+con contraseña no está disponible en este momento», se cierra esa pestaña y se
+abre una nueva para volver a introducir el mismo correo y la misma contraseña.
+Reconoce variantes del aviso en español e inglés.
+
+Se conservan el contexto privado, sus cookies y la cuenta actual. El primer
+reintento espera 5 segundos y el segundo 10 segundos después de cerrar la pestaña.
+Hay como máximo dos reintentos automáticos por apertura de la sesión; no se
+reinicia ese contador al cambiar de pestaña ni al reabrir el formulario manualmente.
+Si el aviso persiste, la última página queda abierta para revisión manual.
+Cerrar/detener desde el programa cancela la espera y evita otra navegación.
+
+Los avisos 429/Too Many Requests mantienen su pausa existente. Una contraseña
+incorrecta, una página ajena a Microsoft o una verificación de identidad no
+activan esta recuperación. No se modificó el bot IMSS ni la asignación de cuentas.
+
+PRUEBAS
+PRUEBAS.bat o python validar.py: 55 pruebas unittest, más comprobaciones de
+cola, migración y enlace HTTP local; todas ejecutadas con datos ficticios.
+
+Prueba opcional con Chromium instalado por Playwright:
+  python PROBAR_REINTENTO_NAVEGADOR.py
+En Linux, si usas un Chromium del sistema:
+  python PROBAR_REINTENTO_NAVEGADOR.py --chromium /usr/bin/chromium
+Esta prueba intercepta todas las solicitudes con HTML ficticio y comprueba el
+cierre de la pestaña, el nuevo formulario, el mismo correo, la contraseña y el
+avance al buzón simulado. No accede a cuentas Microsoft.
+
+Se comprobó en Linux con Python 3.12 y Chromium. No se ejecutaron el instalador
+BAT, la ventana Windows, DPAPI real ni el acceso a una cuenta real. Si Microsoft
+muestra un aviso con una redacción diferente, puede necesitar otro patrón de
+detección. El reintento no garantiza resolver una indisponibilidad del servicio.
+
+Los documentos V12/V13/V14 incluidos son antecedentes del paquete original.
+Este archivo describe el cambio V14.1 y sus comprobaciones actuales.

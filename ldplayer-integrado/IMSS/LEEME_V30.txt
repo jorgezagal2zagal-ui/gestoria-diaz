@@ -1,0 +1,31 @@
+GESTORÍA DÍAZ — IMSS V30 — RECUPERACIÓN DE ANDROID ATORADO
+
+Nuevo: si un Android está OCUPADO sin registrar avance durante 120 s,
+solicita detener el trabajo de ESE Android. Si ya espera un código de IMSS,
+el límite es 300 s para no interrumpir el correo que aún está llegando.
+Un fallo temprano en REVISAR se recupera tras 90 s; no se restablecen
+automáticamente casos con posible OTP ya escrito.
+
+Para volverlo LIBRE, el bot primero:
+  - espera que termine el trabajador de IMSS anterior y sus comandos ADB;
+  - aparta el correo fallido en estado REVISAR (nunca se reutiliza);
+  - cancela el enlace local de Outlook del mismo folio;
+  - cierra únicamente la aplicación IMSS con force-stop, la reabre y
+    COMPRUEBA la pantalla inicial de CURP/correo.
+Si cualquier paso falla, no lo marca LIBRE para evitar cruces de trámites.
+
+NO borra datos de Android, NO hace pm clear, NO hace factory reset,
+NO elimina correos ni documentos de otros trámites, NO acredita PDF entregado.
+La CURP que no avanzó queda cancelada y debe reenviarse si hace falta.
+
+Botón opcional: RECUPERAR UN ANDROID ATORADO (MANUAL).
+Conserva el llenado verificado de CURP/correo V29, Outlook V41 sin cambios,
+ADB V7 sin modificaciones, cuatro slots independientes.
+
+INSTALACIÓN
+1. Termina los trámites en proceso y cierra IMSS V29.
+2. Extrae ZIP y abre ABRIR_IMSS_V30.bat.
+3. Mantén abierta tu versión Outlook que ya funciona.
+4. Prueba con 1 CURP autorizada; luego habilita las cuatro.
+
+LÍMITE: pruebas locales; no se ha probado en tu Windows/LDPlayer reales.

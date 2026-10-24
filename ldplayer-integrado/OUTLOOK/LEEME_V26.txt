@@ -1,0 +1,15 @@
+GESTORÍA DÍAZ — OUTLOOK V26 / IMSS V22
+
+1. Cierra la versión anterior de Outlook. Abre Outlook V26.
+2. IMSS V22 permanece igual; conéctalo del modo habitual.
+3. En Outlook pulsa CUENTAS. Usa Ctrl/Mayús para marcar varios correos.
+4. BORRAR SELECCIONADOS quita solo las cuentas marcadas.
+5. BORRAR TODA LA LISTA quita todas salvo las actualmente OCUPADO.
+6. La eliminación afecta la misma lista SQLite que lee IMSS. Se borran las claves individuales.
+7. Se conserva la contraseña común (AJUSTES) y el historial de cuentas bloqueadas
+   para que una importación accidental no vuelva a utilizarlas.
+8. No se modificó la conexión ADB ni el procedimiento IMSS V22.
+
+IMPORTANTE: trabaja solo con cuentas que sean tuyas y cuyos accesos estén autorizados.
+Si Microsoft exige verificación, hazla por sus vías oficiales.
+Para eliminar todas las cuentas sin excepciones, finaliza primero los trámites OCUPADO.

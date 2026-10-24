@@ -1,0 +1,31 @@
+GESTORÍA DÍAZ - IMSS DIGITAL V12
+===============================
+
+NOVEDADES
+- UN botón: CONECTAR + ABRIR IMSS EN LOS 3.
+- El motor de apertura gestoria_prueba_v7.py se conserva idéntico al V7 probado.
+- Si IMSS ya estaba en primer plano, NO se reinicia.
+- Tres instancias preparadas simultáneamente (ADB y apertura).
+- Escritura agrupada de CURP y correo en menos comandos ADB.
+- Comprobación de datos y del aviso de privacidad antes de Iniciar sesión.
+- Conserva PIN + Enter y confirmación del aviso de correo de V11.
+- No lee códigos de Outlook ni los introduce automáticamente; no descarga PDFs.
+- La velocidad de la red y los servidores IMSS no depende del bot.
+
+INSTALAR / USAR
+1) Extrae todo el ZIP en una NUEVA carpeta. No reemplaces ni borres la V7.
+2) Inicia los tres LDPlayer (depuración ADB local activa) y deja libre su pantalla.
+3) Abre INICIAR_GESTORIA_V12.bat con Python 3 para Windows instalado.
+4) Presiona "1. CONECTAR + ABRIR IMSS EN LOS 3".
+5) Solo los Android que muestren LIBRE están listos para nueva solicitud.
+6) Introduce CURP y correo AUTORIZADOS, marca la autorización, agrega solicitud.
+7) Ingresa el PIN del dispositivo en la casilla privada cuando corresponda.
+8) El bot termina este paso esperando código de correo / revisión manual.
+
+AVISOS
+- NO inserta PIN, CURP ni correo en diagnósticos. El PIN no se guarda en disco.
+- Usa trámites y correos autorizados por el titular; no anula controles de seguridad.
+- No pulses de nuevo el botón CONECTAR si una instancia está en validación.
+- Hay pantallas variables según versión de IMSS. Si no detecta algún control,
+  marca REVISAR para evitar confirmar un formulario incorrecto.
+- Esta versión pasó pruebas locales simuladas; falta probarla en tu PC real.

@@ -1,0 +1,14 @@
+GESTORÍA DÍAZ · OUTLOOK V31 · 4 EMULADORES IMSS V23
+
+Corrige el rechazo de la OFERTA OPCIONAL «Guardar la clave de paso» de Microsoft:
+  - Ventana «Seguridad de Windows»: «Cancelar» (equivale a «No»).
+  - Página oficial Microsoft /fido/create: «Cancelar» o «No».
+  - Mantiene el rechazo del guardado opcional de contraseñas en Chrome del bot.
+  - Mantiene «No» a «¿Quieres mantener la sesión iniciada?».
+  - NO afecta verificaciones obligatorias, credenciales ni el IMSS V23.
+
+IMPORTANTE:
+- Instalar Python, Playwright, uiautomation en Windows (uiautomation necesario para ventanas nativas), usando el entorno que ya tenías en V30.
+- Cierra Outlook V30 antes de usar V31. Ejecuta solo una versión.
+- El código y la pantalla nativa se probaron por simulación; no se realizó prueba real de Microsoft/Windows.
+- Si persiste, comparte una captura de «Seguridad de Windows» y el log del bot.

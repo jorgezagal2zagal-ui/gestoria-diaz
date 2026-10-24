@@ -1,0 +1,22 @@
+Gestoría Díaz · Outlook V25 (Windows)
+
+CAMBIO NUEVO:
+- En la pantalla oficial "Obtener una solicitud de inicio de sesión", selecciona
+  automáticamente una sola vez "Otras formas de iniciar sesión".
+- Si Microsoft ofrece "Usar contraseña", aprovecha el flujo existente de acceso con contraseña.
+- Nunca selecciona "Enviar solicitud", ni aprueba verificaciones o códigos MFA.
+- Si después de abrir el menú no aparece la contraseña, aparta esa cuenta para revisión
+  del titular en lugar de insistir con el mismo inicio.
+- Conserva estado de correos bloqueados, lista compartida, coordinación IMSS V22,
+  diagnósticos y pausas de V24 (10 s tras bandeja confirmada, 30 s tras fallos).
+- Ante Microsoft 429 se detiene sin cambiar de cuenta para sortear la limitación.
+
+CÓMO INSTALAR:
+1) Cierra Outlook V24. Mantén IMSS V22 como estaba.
+2) Ejecuta el archivo individual V25 .pyw o el inicio del ZIP si ya tienes Python.
+3) Haz una solicitud de prueba con una cuenta tuya autorizada.
+4) Si el menú de Microsoft ofrece contraseña, el bot intentará ese método.
+5) Si solo aparecen otros factores de verificación, requiere autorización del titular.
+
+NOTA: La verificación hecha aquí usa pantallas simuladas; falta la prueba real
+con Microsoft en tu PC. No se prometen accesos que Microsoft no permita.

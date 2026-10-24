@@ -1,0 +1,39 @@
+GESTORÍA DÍAZ — BOT OUTLOOK V28
+CORRECCIÓN EXACTA DEL VIDEO 2026-10-23
+
+Cambios sobre V27:
+* Chrome dedicado del bot: desactiva solicitud de guardar contraseñas,
+  traductor automático y solicitudes de vincular Correo electrónico.
+* Oferta «Guardar la clave de paso» de Seguridad de Windows:
+  rechaza «Cancelar» SOLO si la ventana corresponde a CREAR una nueva
+  passkey para login.microsoft.com (no aplica para iniciar sesión con passkey).
+* La página Microsoft «Configurando la clave de paso»: pulsa «Cancelar».
+* «¿Quieres mantener la sesión iniciada?»: pulsa «No» automáticamente.
+  En V27 ese paso estaba DESACTIVADO expresamente en el código.
+* Outlook «Keep access to your account with a recovery method»: «Not now».
+* Si no configuraste otro, el remitente IMSS detectado en el video es
+  verifica-noreplay@imss.gob.mx, precargado para leer correos nuevos.
+* La bandeja, el lector de código de 6 cifras y el enlace IMSS local se
+  mantienen de V27. No se modifica IMSS V22 ni la cola compartida.
+
+Importante:
+- NO evade verificación obligatoria de Microsoft: CAPTCHA, MFA, bloqueo,
+  límite 429, códigos de recuperación y otros retos necesitan al titular.
+- La creación/rechazo de passkey Windows y burbujas Chrome se controla por
+  UI Automation. Requiere Windows, uiautomation y que esa interfaz exponga
+  botones identificables. Si Windows cambia su diálogo, puede pedir un clic.
+- No se completó inicio de sesión real ni prueba con emuladores en este
+  entorno: verificar en tu PC con una cuenta autorizada.
+- El guardado del perfil dedicado del bot no altera tu Chrome personal.
+- Los correos/contraseñas reales no están dentro de este paquete.
+- No abras V27 y V28 al mismo tiempo: el puerto local es 127.0.0.1:8797.
+
+PARA INICIAR:
+1. Cierra V27 y toda ventana Chrome de ese bot.
+2. Haz doble clic en Gestoria_Diaz_OUTLOOK_V28_AUTOMATICO.pyw.
+3. Abre IMSS V22 original, comprueba el enlace local.
+4. Usa el flujo habitual de solicitud; observa la pantalla de estado.
+5. Si Windows pide verificación de identidad no opcional, hazla tú.
+
+LOS 100 TESTS AUTOMATIZADOS EXISTENTES Y NUEVOS PASARON.
+No se ha podido comprobar el cuadro nativo en Windows desde aquí.

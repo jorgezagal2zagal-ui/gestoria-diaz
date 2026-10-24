@@ -1,0 +1,20 @@
+GESTORIA DIAZ OUTLOOK V38
+
+Corrección principal: Outlook web con barra lateral compacta muestra el correo de IMSS
+pero V37 permanecía en mail_loading. V38 detecta New mail/Focused/Other,
+localiza el asunto de verificación, hace clic y espera el panel abierto.
+No ignora permanentemente un mensaje cuyo primer clic no funcione.
+Solo entrega un código si confirma remitente exacto, fecha y solicitud activa.
+
+No se modificó IMSS V26. Se mantienen 4 sesiones de Chrome visibles,
+rechazo de ofertas opcionales y los canales locales de código.
+
+INSTALACION:
+1. Terminar trámites abiertos, cerrar Outlook V37.
+2. Extraer el ZIP a una carpeta nueva.
+3. Ejecutar ABRIR_OUTLOOK_V38.bat
+4. Mantener IMSS V26 abierto en la misma PC.
+5. En DIAGNOSTICO se registran eventos sin guardar los dígitos del código.
+
+Si se ve el correo pero sigue sin abrirse, enviar las lineas de diagnostico.
+No compartir los códigos ni credenciales.

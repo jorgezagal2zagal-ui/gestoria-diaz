@@ -1,0 +1,1 @@
+OUTLOOK V40: lector de mensaje IMSS abierto con diagnóstico por etapas; primer OTP para solicitud activa. No escribe códigos en registros. Abre Chrome visible. Compatible con IMSS V27.

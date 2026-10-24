@@ -1,0 +1,6 @@
+Gestoría Díaz IMSS V22
+- Conserva conexión ADB y apertura IMSS Digital de V7 sin alterar sus archivos.
+- Si hay 0 solicitudes en cola Outlook no puede seguir probando correos: agrega una CURP autorizada.
+- Si un Android quedó REVISAR por error de Outlook sin folio activo, V22 verifica la pantalla inicial cada 10 segundos y marca LIBRE sólo cuando se reconoce de verdad.
+- Si hay un trámite o un correo todavía ligado al Android, no se libera automáticamente.
+- No se pierden ni borran credenciales, ni se retiran de revisión sin verificar.

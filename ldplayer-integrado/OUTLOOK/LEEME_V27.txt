@@ -1,0 +1,30 @@
+GESTORIA DIAZ — OUTLOOK V27 | LIMPIEZA DE LISTA
+
+Este cambio afecta SOLO la gestion de correos Outlook. IMSS V22 y ADB siguen iguales.
+
+Caso de la captura: 0 DISPONIBLES, 3 OCUPADOS. La V26 no deja reemplazar
+porque protege las reservas. V27 permite:
+
+1) Agregar correos verificados con IMPORTAR TXT sin reemplazar la lista actual.
+   Formato: correo@hotmail.com | contrasena
+   No vuelve a agregar los historicamente bloqueados o que requieren otro metodo.
+   No sobrescribe contrasenas de cuentas que ya estan presentes.
+2) CUENTAS > BORRAR SELECCIONADOS: elimina solo los elegidos.
+3) CUENTAS > BORRAR TODA LA LISTA: elimina todo lo que siga en lista.
+   Si incluye OCUPADOS, CIERRA IMSS Digital V22 y asegúrate de que no haya
+   tramites en curso; deja Outlook con el navegador DETENIDO.
+   Escribe LIMPIAR para autorizar la limpieza de reservas antiguas.
+   Se respaldara el catalogo SQLite local sin contrasenas antes de borrarlo.
+   Las tareas antiguas correspondientes se quitan de la cola de Outlook.
+
+El historial de cuentas bloqueadas sigue APARTADO de la lista de trabajo:
+ninguna cuenta bloqueada vuelve a ser disponible solo por importarla.
+No se borra ninguna cuenta Microsoft real ni los correos almacenados en su buzon.
+
+Inicio: ejecutar Gestoria_Diaz_OUTLOOK_V27_LISTA_CORREGIDA.pyw (Windows con Python).
+Al abrirse, entrar a CUENTAS. Cerrar otras versiones Outlook antes de iniciar.
+
+Si hay tareas realmente en curso NO utilizar LIMPIAR: termina primero los
+tramites activos. Se recomienda conservar una copia del TXT verificado.
+
+Esta version se valido localmente sin usar cuentas reales Microsoft ni emuladores.

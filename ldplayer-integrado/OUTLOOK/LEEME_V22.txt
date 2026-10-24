@@ -1,0 +1,7 @@
+Gestoría Díaz Outlook V22
+- Abre solo Outlook V22, luego IMSS V22. Cierra las versiones anteriores antes.
+- Si IMSS no tiene CURP en cola, Outlook mostrará SIN SOLICITUDES NUEVAS y no navegará.
+- Pausa local de 10 segundos únicamente tras cerrar una sesión con bandeja correctamente comprobada.
+- Tras rechazo de contraseña, bloqueo o verificación adicional: mínimo 30 segundos y la cuenta queda apartada.
+- Ante Microsoft 429 se respeta la pausa global; esta versión NO elude límites ni verificaciones.
+- La lista compartida de correos y contraseñas se conserva.

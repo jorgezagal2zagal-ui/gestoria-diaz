@@ -1,0 +1,12 @@
+GESTORÍA DÍAZ — OUTLOOK V19 (BLOQUEOS INDIVIDUALES)
+
+Cierra Outlook V18 y otras versiones de Outlook. Abre V19; IMSS V17 permanece sin cambios.
+La nueva detección reconoce «Se bloqueó la cuenta» en páginas oficiales de Microsoft.
+La cuenta específica queda apartada en «VER CORREOS BLOQUEADOS»; no se vuelve a usar automáticamente.
+IMSS V17 ya sabe reservar otra cuenta autorizada (hasta tres por solicitud).
+Si hay un aviso global «Too Many Requests» (HTTP 429), todos los accesos se PAUSAN; nunca se rota para eludir el límite.
+Los bloqueos quedan en la misma lista compartida como REVISAR, más el apartado de bloqueados.
+No borres la carpeta de datos de Windows ni importes tu lista de nuevo. No se comparten contraseñas en registros.
+La recuperación de cuentas bloqueadas se realiza por el titular en Microsoft, no en el bot.
+
+Probado con tests simulados del texto y SQLite. No probado contra Microsoft real.

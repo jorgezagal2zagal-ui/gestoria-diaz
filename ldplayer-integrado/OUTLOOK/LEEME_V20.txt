@@ -1,0 +1,6 @@
+GESTORÍA DÍAZ — OUTLOOK V20
+
+Microsoft puede negar el acceso con contraseña. V20 lo detecta en la página oficial, deja de reintentar y aparta esa cuenta en «Requiere otro método». No la etiqueta falsamente como bloqueada.
+IMSS V20 podrá continuar con una alternativa autorizada, como máximo una tras ese aviso, respetando pausas de Outlook y evitando 429. Si el siguiente acceso también falla, se detiene la solicitud. No soluciona ni salta MFA/captcha.
+Cierra todas las versiones anteriores de Outlook e IMSS. Abre Outlook V20 primero, luego IMSS V20. Conserva la lista compartida y las contraseñas cifradas; NO importes el TXT otra vez.
+Compatibilidad Windows; pruebas en simulación. Microsoft puede exigir un método que necesite acción del titular para recuperar esa cuenta.

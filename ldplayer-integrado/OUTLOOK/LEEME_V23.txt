@@ -1,0 +1,17 @@
+Gestoria Diaz - Outlook V23 - Diagnostico de ventanas
+
+1. Cierra cualquier version anterior de Outlook BOT. No cierres Chrome personal.
+2. Abre V23. Con una solicitud autorizada, observa el estado debajo del panel.
+3. Si en el tercer intento dice que abrira, pulsa COPIAR DIAGNOSTICO y pega el texto en ChatGPT.
+4. Si NO hay una sesion activa, tambien puedes pulsar PROBAR CHROME SIN CORREO;
+   abre una ventana temporal en blanco, NO visita Microsoft y NO usa ningun correo.
+5. IMSS, conexion ADB, base de datos, cuentas bloqueadas y contrasenas no cambian.
+6. En 429/verificacion/bloqueo NO se reintentan cuentas para superar controles de Microsoft.
+
+Estados reales:
+ - SOLICITUD ENVIADA: apenas se creo el hilo, NO se confirma ventana.
+ - PESTANA CREADA: Playwright creo una pestaña, no se confirma login.
+ - NAVEGADOR VISIBLE: hay una ventana propia del proceso visible.
+ - SIN CONFIRMAR: revisar diagnostico, no asumir acceso.
+
+Importante: pruebas unitarias en Linux no confirman comportamiento en tu Windows.
