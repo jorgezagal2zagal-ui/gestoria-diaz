@@ -1,8 +1,8 @@
 GESTORIA DIAZ - PIN AUTOMATICO Y DE 1 A 5 INSTANCIAS
 
 1. Cierra la ventana de la version anterior del bot.
-2. Extrae este ZIP y reemplaza gestoria_5_instancias.py en la carpeta habitual
-   del bot para conservar el mapa de instancias y los correos usados.
+2. Extrae TODO el ZIP en la carpeta habitual del bot y reemplaza el archivo
+   gestoria_5_instancias.py. Abre el archivo extraido.
 3. Abre gestoria_5_instancias.py con Python en Windows.
 4. Elige cuantas instancias quieres abrir: 1, 2, 3, 4 o 5.
 5. Comprueba la ruta de ldconsole.exe y pulsa PREPARAR / ENCENDER.
@@ -12,6 +12,15 @@ Comprueba que Android se haya desbloqueado antes de abrir IMSS Digital.
 Si el PIN no se acepta, avisa y espera tu intervencion en la instancia,
 sin introducirlo repetidamente. Tambien enfoca el campo de PIN al confirmar
 la identidad en IMSS. El codigo que llega por correo sigue siendo manual.
+
+DATOS PERSISTENTES EN WINDOWS
+El historial, el mapa de instancias y las capturas se guardan en:
+%LOCALAPPDATA%\GestoriaDiaz
+Asi no dependen de la carpeta temporal que crea Windows al abrir un ZIP.
+La primera vez se copian el mapa y el historial antiguos de la carpeta del bot,
+si existen y aun no hay una copia persistente. Se conservan los originales.
+Si falla una escritura, el correo queda reservado en memoria y el bot continua
+con el PIN. Reintenta guardar cada cinco segundos mientras siga abierto.
 
 CODIGO DEL CORREO (SEIS DIGITOS)
 Pega los seis digitos en "Codigo del correo" y pulsa "2. ENVIAR CODIGO".

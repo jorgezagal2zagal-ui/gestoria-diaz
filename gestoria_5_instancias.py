@@ -7,9 +7,12 @@
 """
 import csv
 import json
+import os
 import queue
 import re
+import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -35,8 +38,33 @@ def nombres_instancias(cantidad):
 NOMBRES = nombres_instancias(CANTIDAD)
 TODOS_NOMBRES = nombres_instancias(5)
 FLAGS = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-CARPETA = Path(__file__).parent
+CARPETA_PROGRAMA = Path(__file__).resolve().parent
+
+
+def directorio_datos():
+    """Los datos de Windows sobreviven a la extracción temporal de un ZIP."""
+    if sys.platform == 'win32':
+        base = os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA')
+        return (Path(base) if base else Path.home() / 'AppData' / 'Local') / 'GestoriaDiaz'
+    return CARPETA_PROGRAMA / '.gestoria-datos'
+
+
+CARPETA = directorio_datos()
 USADOS = CARPETA / 'correos_usados.csv'
+
+
+def preparar_datos():
+    """Crear el almacén estable y conservar archivos de versiones anteriores."""
+    CARPETA.mkdir(parents=True, exist_ok=True)
+    for nombre in ('instancias.json', 'correos_usados.csv'):
+        anterior, destino = CARPETA_PROGRAMA / nombre, CARPETA / nombre
+        if anterior.is_file() and not destino.exists():
+            try:
+                with anterior.open('rb') as origen, destino.open('xb') as salida:
+                    shutil.copyfileobj(origen, salida)
+            except FileExistsError:
+                pass             # otra ventana ya importó el historial; no sobrescribir
+
 # Pantalla "Inicia sesión" de IMSS Digital (720x1280)
 CHECK_AVISO = (75, 504)
 PIN_EMULADOR = '1234'
@@ -73,6 +101,7 @@ MAPA = CARPETA / 'instancias.json'   # nombre -> índice de LDPlayer (por si LDP
 
 def leer_mapa():
     try:
+        preparar_datos()
         return json.loads(MAPA.read_text(encoding='utf-8'))
     except Exception:
         return {}
@@ -80,6 +109,8 @@ def leer_mapa():
 
 def guardar_mapa(mapa):
     try:
+        preparar_datos()
+        MAPA.parent.mkdir(parents=True, exist_ok=True)
         MAPA.write_text(json.dumps(mapa, indent=2), encoding='utf-8')
     except Exception:
         pass
@@ -281,20 +312,24 @@ def enviar_pin_identidad(console, idx, nodos, pin):
     """Enfoca el campo de identidad o usa su teclado visible antes de enviar el PIN."""
     if not isinstance(pin, str) or not re.fullmatch(r'[0-9]{4,12}', pin):
         return False
-    texto = todo_texto(nodos)
+    pantalla_visible = [n for n in nodos if n.get('visible', True) and n.get('area', 0) > 0]
+    texto = todo_texto(pantalla_visible)
     if re.search(r'c[oó]digo de validaci[oó]n', texto):
         return False
     if not re.search(r'(?:validaci[oó]n|verificaci[oó]n) de identidad|confirma tu identidad|'
                      r'(?:ingresa|introduce) (?:tu |el )?pin', texto):
         return False
 
-    visibles = [n for n in nodos if n.get('enabled') and n.get('area', 0) > 0]
+    visibles = [n for n in pantalla_visible if n.get('enabled')]
     campos = [n for n in visibles if re.sub(r'[^a-z0-9]', '',
               n.get('rid', '').rsplit('/', 1)[-1].lower()) in
               ('passwordentry', 'pinentry', 'password', 'passwordinput', 'pininput',
                'passwordfield', 'pinfield', 'edittextpin', 'inputpin')]
     if not campos:
         campos = [n for n in visibles if n.get('clase', '').endswith('EditText')]
+        enfocados = [n for n in campos if n.get('focused')]
+        if len(enfocados) == 1:
+            campos = enfocados
     if len(campos) == 1:
         tocar(console, idx, campos[0]['xy'])
         return introducir_pin_android(console, idx, pin)
@@ -361,6 +396,7 @@ def pantalla(console, idx):
         nodos.append({'rid': g('resource-id'), 'texto': texto,
                       'valor': valor, 'descripcion': descripcion, 'bounds': tuple(b),
                       'visible': g('visible-to-user') != 'false',
+                      'focused': g('focused') == 'true',
                       'enabled': g('enabled') == 'true',
                       'xy': ((b[0] + b[2]) // 2, (b[1] + b[3]) // 2), 'clase': g('class'),
                       'area': max(0, b[2] - b[0]) * max(0, b[3] - b[1])})
@@ -472,6 +508,7 @@ def leer_correos(ruta):
 
 
 def correos_usados():
+    preparar_datos()
     if not USADOS.is_file():
         return set()
     with USADOS.open(encoding='utf-8') as f:
@@ -479,6 +516,8 @@ def correos_usados():
 
 
 def marcar_usado(curp, correo, instancia, tramite):
+    preparar_datos()
+    USADOS.parent.mkdir(parents=True, exist_ok=True)
     nuevo = not USADOS.is_file()
     with USADOS.open('a', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, fieldnames=['fecha', 'curp', 'correo', 'instancia', 'tramite'])
@@ -497,6 +536,15 @@ class App:
                       f'{min(980, root.winfo_screenheight() - 100)}')
         root.configure(bg=NEGRO)
         self.events = queue.Queue()
+        self.usados_sesion = set()
+        self.correos_pendientes = []
+        self.bloqueo_correos = threading.RLock()
+        self.ultimo_guardado_correos = 0.0
+        self.aviso_guardado_pendiente = False
+        try:
+            preparar_datos()
+        except OSError:
+            self.emit('⚠ No pude preparar la carpeta de datos. Los correos se conservarán en esta sesión hasta poder guardarlos.')
         self.busy = False
         self.desbloqueando = False
         self.nombres = tuple(NOMBRES)
@@ -691,6 +739,9 @@ class App:
                     self.selector_cantidad.configure(state='readonly')
         except queue.Empty:
             pass
+        if (getattr(self, 'correos_pendientes', [])
+                and time.monotonic() - self.ultimo_guardado_correos >= 5):
+            self.guardar_correos_pendientes()
         self.root.after(100, self.poll)
 
     # ---------- preparar
@@ -841,8 +892,41 @@ class App:
         self.emit(f'📄 Cargados {len(self.correos)} correos de {Path(p).name}')
 
     def disponibles(self):
-        usados = correos_usados()
+        usados = correos_usados() | getattr(self, 'usados_sesion', set()).copy()
         return [c for c in self.correos if c.lower() not in usados]
+
+    def registrar_correo(self, curp, correo, nombre, tramite):
+        """Reservar primero en memoria: un fallo de disco no debe cancelar el PIN."""
+        if not hasattr(self, 'bloqueo_correos'):
+            self.bloqueo_correos = threading.RLock()
+            self.usados_sesion = set()
+            self.correos_pendientes = []
+            self.ultimo_guardado_correos = 0.0
+            self.aviso_guardado_pendiente = False
+        with self.bloqueo_correos:
+            self.usados_sesion.add(correo.lower())
+            self.correos_pendientes.append((curp, correo, nombre, tramite))
+        return self.guardar_correos_pendientes()
+
+    def guardar_correos_pendientes(self):
+        if not getattr(self, 'correos_pendientes', []):
+            return True
+        with self.bloqueo_correos:
+            self.ultimo_guardado_correos = time.monotonic()
+            while self.correos_pendientes:
+                try:
+                    marcar_usado(*self.correos_pendientes[0])
+                except OSError:
+                    if not self.aviso_guardado_pendiente:
+                        self.emit('⚠ No pude guardar el historial de correos. El correo queda reservado '
+                                  'en esta sesión; continuaré con el PIN y reintentaré guardar.')
+                        self.aviso_guardado_pendiente = True
+                    return False
+                self.correos_pendientes.pop(0)
+            if self.aviso_guardado_pendiente:
+                self.emit('✔ Historial de correos guardado. Ya no hay registros pendientes.')
+                self.aviso_guardado_pendiente = False
+        return True
 
     def refrescar_correos(self):
         d = len(self.disponibles())
@@ -851,7 +935,7 @@ class App:
     def foto(self, path, idx, nombre_archivo):
         adb(path, idx, 'shell', 'screencap', '-p', '/sdcard/c.png')
         destino = CARPETA / 'capturas'
-        destino.mkdir(exist_ok=True)
+        destino.mkdir(parents=True, exist_ok=True)
         adb(path, idx, 'pull', '/sdcard/c.png', str(destino / nombre_archivo))
         return destino / nombre_archivo
 
@@ -918,7 +1002,7 @@ class App:
                 self.emit(f'⚠ {nombre}: INICIAR SESIÓN sigue desactivado; revisa CURP/correo')
                 return
             tocar(path, idx, btn['xy'])                       # INICIAR SESIÓN
-            marcar_usado(curp, correo, nombre, tramite)
+            self.registrar_correo(curp, correo, nombre, tramite)
             self.root.after(0, self.refrescar_correos)
 
             # Validación de identidad (PIN) -> confirmar correo -> pantalla de código
@@ -927,7 +1011,7 @@ class App:
             for _ in range(30):
                 time.sleep(2)
                 nodos = pantalla(path, idx)
-                txt = todo_texto(nodos)
+                txt = todo_texto([n for n in nodos if n.get('visible', True) and n.get('area', 0) > 0])
                 if 'código de validación' in txt or 'codigo de validacion' in txt:
                     self.pendiente = (path, idx, nombre, curp, correo, tramite)
                     self.events.put(('aviso', f'📧 {nombre}: pega el código que llegó a {correo}'))

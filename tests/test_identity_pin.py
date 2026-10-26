@@ -12,9 +12,10 @@ bot = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(bot)
 
 
-def node(text='', rid='', kind='android.widget.TextView', xy=(100, 100), enabled=True):
+def node(text='', rid='', kind='android.widget.TextView', xy=(100, 100), enabled=True,
+         visible=True, focused=False):
     return {'texto': text, 'rid': rid, 'clase': kind, 'xy': xy,
-            'enabled': enabled, 'area': 2000}
+            'enabled': enabled, 'area': 2000, 'visible': visible, 'focused': focused}
 
 
 def identity_nodes(field=True):
@@ -50,6 +51,48 @@ class IdentityPinEntryTests(unittest.TestCase):
         self.assertTrue(bot.enviar_pin_identidad('test-console', '2', nodes, '8706'))
         self.assertEqual(self.adb.call_args_list[0].args[2:],
                          ('shell', 'input', 'tap', '90', '220'))
+
+    def test_focused_credential_field_wins_over_background_login_inputs(self):
+        nodes = [node('Validación de identidad'), node('Confirma tu identidad para ingresar.'),
+                 node(rid='example:id/txtCURP', kind='android.widget.EditText', xy=(80, 180)),
+                 node(rid='example:id/txtCorreo', kind='android.widget.EditText', xy=(80, 240)),
+                 node(rid='android:id/custom', kind='android.widget.EditText',
+                      xy=(180, 700), focused=True),
+                 node('Código de validación', visible=False)]
+        self.assertTrue(bot.enviar_pin_identidad('test-console', '2', nodes, '8706'))
+        taps = [call.args[2:] for call in self.adb.call_args_list
+                if call.args[2:5] == ('shell', 'input', 'tap')]
+        self.assertEqual(taps, [('shell', 'input', 'tap', '180', '700')])
+
+    def test_known_pin_id_keeps_priority_over_focused_background_field(self):
+        nodes = identity_nodes() + [
+            node(rid='example:id/txtCorreo', kind='android.widget.EditText',
+                 xy=(80, 240), focused=True)]
+        self.assertTrue(bot.enviar_pin_identidad('test-console', '2', nodes, '8706'))
+        self.assertEqual(self.adb.call_args_list[0].args[2:],
+                         ('shell', 'input', 'tap', '180', '300'))
+
+    def test_hidden_or_zero_area_identity_fields_are_not_pin_targets(self):
+        for change in ({'visible': False}, {'area': 0}):
+            with self.subTest(change=change):
+                self.adb.reset_mock()
+                nodes = identity_nodes()
+                nodes[-1].update(change)
+                self.assertFalse(bot.enviar_pin_identidad('test-console', '2', nodes, '8706'))
+                self.adb.assert_not_called()
+
+    def test_multiple_focused_generic_fields_remain_ambiguous(self):
+        nodes = [node('Confirma tu identidad'),
+                 node(kind='android.widget.EditText', focused=True),
+                 node(kind='android.widget.EditText', focused=True)]
+        self.assertFalse(bot.enviar_pin_identidad('test-console', '2', nodes, '8706'))
+        self.adb.assert_not_called()
+
+    def test_hidden_identity_prompt_does_not_authorize_pin_input(self):
+        nodes = [node('Confirma tu identidad', visible=False),
+                 node(kind='android.widget.EditText', focused=True)]
+        self.assertFalse(bot.enviar_pin_identidad('test-console', '2', nodes, '8706'))
+        self.adb.assert_not_called()
 
     def test_numeric_keypad_is_tapped_when_no_editable_field_is_exposed(self):
         nodes = identity_nodes(field=False) + [
@@ -164,6 +207,16 @@ class IdentityChallengeFlowTests(unittest.TestCase):
         app, send, _ = self.run_flow([identity_nodes() + [node('Código de validación')]])
         send.assert_not_called()
         self.assertIsNotNone(app.pendiente)
+
+    def test_hidden_email_code_screen_does_not_skip_identity_pin(self):
+        app, send, _ = self.run_flow([
+            identity_nodes() + [node('Código de validación', visible=False)],
+            [node('Código de validación')]])
+        send.assert_called_once()
+        self.assertIsNotNone(app.pendiente)
+        messages = [call.args[0] for call in app.emit.call_args_list]
+        self.assertTrue(any('PIN enviado' in message for message in messages))
+        self.assertFalse(any('ERROR' in message for message in messages))
 
     def test_rejected_pin_is_not_automatically_submitted_again(self):
         challenge = identity_nodes()
