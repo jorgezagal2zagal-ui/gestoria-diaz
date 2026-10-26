@@ -13,6 +13,11 @@ Si el PIN no se acepta, avisa y espera tu intervencion en la instancia,
 sin introducirlo repetidamente. Tambien enfoca el campo de PIN al confirmar
 la identidad en IMSS. El codigo que llega por correo sigue siendo manual.
 
+CAMBIO DE DISPOSITIVO
+Si IMSS avisa que la CURP esta vinculada a otro dispositivo, el bot pulsa
+"SI, QUIERO HACER EL CAMBIO" y continua con el PIN y la validacion del correo.
+Este cambio vincula la CURP con la instancia que estas usando.
+
 DATOS PERSISTENTES EN WINDOWS
 El historial, el mapa de instancias y las capturas se guardan en:
 %LOCALAPPDATA%\GestoriaDiaz

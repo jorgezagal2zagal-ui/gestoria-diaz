@@ -17,6 +17,7 @@ import tempfile
 import threading
 import time
 import tkinter as tk
+import unicodedata
 from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 from html import unescape
@@ -453,6 +454,30 @@ def codigo_escrito(cajas):
     if len(cajas) == 1 and re.fullmatch(r'[0-9]{0,6}', valores[0]):
         return valores[0]
     return ''
+
+
+def texto_normalizado(texto):
+    texto = ''.join(c for c in unicodedata.normalize('NFD', texto.casefold())
+                    if not unicodedata.combining(c))
+    return ' '.join(re.findall(r'[a-z0-9]+', texto))
+
+
+def aviso_cambio_dispositivo(nodos):
+    visibles = [n for n in nodos if n.get('visible', True) and n.get('area', 0) > 0]
+    texto = texto_normalizado(todo_texto(visibles))
+    return bool(re.search(r'\bcurp\b.*\bvinculad[ao]\b.*\botro dispositivo\b', texto)
+                and re.search(r'\bvincularla a este\b', texto))
+
+
+def boton_cambio_dispositivo(nodos):
+    """El botón afirmativo del aviso de vinculación solicitado por el usuario."""
+    if not aviso_cambio_dispositivo(nodos):
+        return None
+    botones = [n for n in nodos if n.get('visible', True) and n.get('enabled')
+               and n.get('area', 0) > 0 and any(
+                   texto_normalizado(texto) == 'si quiero hacer el cambio'
+                   for texto in (n.get('valor', ''), n.get('descripcion', ''), n.get('texto', '')))]
+    return min(botones, key=lambda n: n['area']) if botones else None
 
 
 def todo_texto(nodos):
@@ -1005,13 +1030,27 @@ class App:
             self.registrar_correo(curp, correo, nombre, tramite)
             self.root.after(0, self.refrescar_correos)
 
-            # Validación de identidad (PIN) -> confirmar correo -> pantalla de código
+            # Cambio de dispositivo -> identidad (PIN) -> confirmar correo -> código
+            cambio_pulsado = False
+            aviso_cambio_sin_boton = False
             pin_enviado = False
             aviso_pin_manual = False
             for _ in range(30):
                 time.sleep(2)
                 nodos = pantalla(path, idx)
                 txt = todo_texto([n for n in nodos if n.get('visible', True) and n.get('area', 0) > 0])
+                if aviso_cambio_dispositivo(nodos):
+                    if not cambio_pulsado:
+                        boton_cambio = boton_cambio_dispositivo(nodos)
+                        if boton_cambio:
+                            tocar(path, idx, boton_cambio['xy'])
+                            cambio_pulsado = True
+                            self.emit('✔ Pulsé «Sí, quiero hacer el cambio»; esperando la siguiente pantalla.')
+                        elif not aviso_cambio_sin_boton:
+                            self.emit('⚠ Apareció el aviso de cambio de dispositivo, pero el botón '
+                                      '«Sí, quiero hacer el cambio» aún no está disponible.')
+                            aviso_cambio_sin_boton = True
+                    continue
                 if 'código de validación' in txt or 'codigo de validacion' in txt:
                     self.pendiente = (path, idx, nombre, curp, correo, tramite)
                     self.events.put(('aviso', f'📧 {nombre}: pega el código que llegó a {correo}'))
