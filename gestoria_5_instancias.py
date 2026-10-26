@@ -16,6 +16,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
+from html import unescape
 
 DEFAULT = r'D:\LDPlayer\LDPlayer14\ldconsole.exe'
 PACKAGE = 'st.android.imsspublico'
@@ -351,13 +352,71 @@ def pantalla(console, idx):
     nodos = []
     for m in re.finditer(r'<node [^>]*>', xml):
         t = m.group(0)
-        g = lambda k: (re.search(k + r'="([^"]*)"', t) or [None, ''])[1]
-        b = list(map(int, re.findall(r'\d+', g('bounds')))) or [0, 0, 0, 0]
-        texto = ' '.join((g('text') + ' ' + g('content-desc')).split())
-        nodos.append({'rid': g('resource-id'), 'texto': texto, 'enabled': g('enabled') == 'true',
+        g = lambda k: unescape((re.search(k + r'="([^"]*)"', t) or [None, ''])[1])
+        b = list(map(int, re.findall(r'-?\d+', g('bounds'))))
+        if len(b) != 4:
+            b = [0, 0, 0, 0]
+        valor, descripcion = g('text'), g('content-desc')
+        texto = ' '.join((valor + ' ' + descripcion).split())
+        nodos.append({'rid': g('resource-id'), 'texto': texto,
+                      'valor': valor, 'descripcion': descripcion, 'bounds': tuple(b),
+                      'visible': g('visible-to-user') != 'false',
+                      'enabled': g('enabled') == 'true',
                       'xy': ((b[0] + b[2]) // 2, (b[1] + b[3]) // 2), 'clase': g('class'),
-                      'area': (b[2] - b[0]) * (b[3] - b[1])})
+                      'area': max(0, b[2] - b[0]) * max(0, b[3] - b[1])})
     return nodos
+
+
+def cajas_codigo_validacion(nodos):
+    """Selecciona la fila de seis casillas; excluye los campos CURP/correo."""
+    campos = [n for n in nodos if n.get('clase', '').endswith('EditText')
+              and n.get('visible', True) and n.get('enabled') and n.get('area', 0) > 0
+              and min(n['xy']) >= 0]
+    medidas = []
+    for campo in campos:
+        limites = campo.get('bounds')
+        if limites and len(limites) == 4:
+            ancho, alto = limites[2] - limites[0], limites[3] - limites[1]
+        else:
+            ancho = alto = campo['area'] ** .5
+        if ancho > 0 and alto > 0 and .3 <= ancho / alto <= 2:
+            medidas.append((campo, ancho, alto))
+    filas = {}
+    for referencia, _, alto in medidas:
+        fila = [(n, w, h) for n, w, h in medidas
+                if abs(n['xy'][1] - referencia['xy'][1]) <= min(alto, h) * .25]
+        if len(fila) != 6:
+            continue
+        fila.sort(key=lambda item: item[0]['xy'][0])
+        anchos, altos = [item[1] for item in fila], [item[2] for item in fila]
+        distancias = [fila[i + 1][0]['xy'][0] - fila[i][0]['xy'][0] for i in range(5)]
+        if (max(anchos) > min(anchos) * 1.8 or max(altos) > min(altos) * 1.5
+                or min(distancias) < min(anchos) * .6
+                or max(distancias) > max(anchos) * 2.2):
+            continue
+        clave = tuple(n['xy'] for n, _, _ in fila)
+        filas[clave] = [n for n, _, _ in fila]
+    if len(filas) == 1:
+        return next(iter(filas.values()))
+    if filas:
+        return []                # varias filas posibles: no escribir en una al azar
+    unicas = []
+    for campo in campos:
+        rid = re.sub(r'[^a-z0-9]', '', campo.get('rid', '').rsplit('/', 1)[-1].lower())
+        if rid in ('otp', 'otpinput', 'codeinput', 'verificationcode', 'validationcode',
+                   'codigovalidacion', 'codigoverificacion', 'txtcodigo', 'inputcodigo'):
+            unicas.append(campo)
+    return unicas if len(unicas) == 1 else []
+
+
+def codigo_escrito(cajas):
+    """Lee el valor real; los números de las descripciones no son dígitos escritos."""
+    valores = [n.get('valor', n.get('texto', '')).strip() for n in cajas]
+    if len(cajas) == 6 and all(re.fullmatch(r'[0-9]?', valor) for valor in valores):
+        return ''.join(valores)
+    if len(cajas) == 1 and re.fullmatch(r'[0-9]{0,6}', valores[0]):
+        return valores[0]
+    return ''
 
 
 def todo_texto(nodos):
@@ -916,32 +975,48 @@ class App:
         threading.Thread(target=self._codigo, args=(codigo, *self.pendiente), daemon=True).start()
 
     def meter_codigo(self, path, idx, codigo):
-        """Escribe el código en la pantalla de IMSS: si hay 6 cajitas, un dígito en cada una;
-        si hay una sola caja, todo junto. Al final revisa que quedaron los 6 dígitos."""
-        nodos = pantalla(path, idx)
-        cajas = sorted([n for n in nodos if n['clase'].endswith('EditText')],
-                       key=lambda n: (n['xy'][1] // 40, n['xy'][0]))
+        """Escribe solo en las casillas de validación y confirma los seis dígitos."""
+        if not isinstance(codigo, str) or not re.fullmatch(r'[0-9]{6}', codigo):
+            return False
         for intento in (1, 2):
-            if len(cajas) >= len(codigo):
-                for caja, digito in zip(cajas, codigo):
-                    tocar(path, idx, caja['xy'])
-                    adb(path, idx, 'shell', 'input', 'keyevent', 'KEYCODE_DEL')
-                    adb(path, idx, 'shell', 'input', 'text', digito)
-                    time.sleep(0.4)
-            else:
-                if cajas:
-                    tocar(path, idx, cajas[0]['xy'])
-                for digito in codigo:           # uno por uno, para que la app los alcance
-                    adb(path, idx, 'shell', 'input', 'text', digito)
-                    time.sleep(0.4)
-            time.sleep(1)                       # sin BACK: podría salirse de la pantalla
             nodos = pantalla(path, idx)
-            cajas = sorted([n for n in nodos if n['clase'].endswith('EditText')],
-                           key=lambda n: (n['xy'][1] // 40, n['xy'][0]))
-            escrito = re.sub(r'\D', '', ''.join(n['texto'] for n in cajas))
-            if escrito == codigo or not cajas or not escrito:   # vacío = cajitas ocultas (••)
+            cajas = cajas_codigo_validacion(nodos)
+            if not cajas:
+                self.emit('⚠ No identifiqué las casillas del código de validación.')
+                break
+            if codigo_escrito(cajas) == codigo:
                 return True
-            self.emit(f'   El código quedó como "{escrito}"; lo vuelvo a escribir')
+            cantidad = len(cajas)
+            # Borrar desde la derecha, SOLO si hay contenido. DEL sobre una casilla
+            # vacía puede retroceder a la anterior y borrar otro dígito.
+            for pos in reversed(range(cantidad)):
+                if not cajas[pos].get('valor', cajas[pos].get('texto', '')):
+                    continue
+                cajas = cajas_codigo_validacion(pantalla(path, idx))
+                if len(cajas) != cantidad:
+                    return False
+                caja = cajas[pos]
+                valor = caja.get('valor', caja.get('texto', ''))
+                if not valor:
+                    continue
+                tocar(path, idx, caja['xy'])
+                adb(path, idx, 'shell', 'input', 'keyevent', 'KEYCODE_MOVE_END')
+                adb(path, idx, 'shell', 'input', 'keyevent',
+                    *(['KEYCODE_DEL'] * min(len(valor), 6 if cantidad == 1 else 1)))
+            for pos, digito in enumerate(codigo):
+                cajas = cajas_codigo_validacion(pantalla(path, idx))
+                if len(cajas) != cantidad:
+                    return False
+                if cantidad == 6 or pos == 0:
+                    tocar(path, idx, cajas[pos if cantidad == 6 else 0]['xy'])
+                adb(path, idx, 'shell', 'input', 'keyevent', 'KEYCODE_' + digito)
+                time.sleep(.3)
+            time.sleep(.6)
+            cajas = cajas_codigo_validacion(pantalla(path, idx))
+            if len(cajas) == cantidad and codigo_escrito(cajas) == codigo:
+                return True
+            if intento == 1:
+                self.emit('⚠ El código no quedó completo. Voy a limpiar las casillas y repetirlo una vez.')
         self.foto(path, idx, 'codigo_incompleto.png')
         return False
 
@@ -949,36 +1024,49 @@ class App:
         try:
             if not self.meter_codigo(path, idx, codigo):
                 self.emit('✖ No pude escribir los 6 dígitos. Revisa la captura y vuelve a enviarlo.')
-                self.root.after(0, lambda: self.btn_codigo.configure(state='normal'))
                 return
-            boton = (buscar_texto(pantalla(path, idx),
-                                  r'^(verificar|validar|continuar|aceptar|confirmar|enviar)$'))
-            if boton and boton['enabled']:
-                tocar(path, idx, boton['xy'])
-                self.emit('➡ Código puesto completo; le di continuar')
-            else:
-                adb(path, idx, 'shell', 'input', 'keyevent', '66')
-                self.emit('➡ Código puesto completo; le di Enter')
+            nodos = [n for n in pantalla(path, idx) if n.get('visible', True) and n.get('area', 0) > 0]
+            botones = [n for n in nodos if n.get('enabled') and any(
+                re.fullmatch(r'(?i)(verificar|validar)', etiqueta.strip())
+                for etiqueta in (n.get('valor', ''), n.get('descripcion', ''), n.get('texto', '')))]
+            if not botones:
+                self.emit('⚠ Verificar sigue desactivado o no está visible. Revisa las seis casillas y vuelve a enviar.')
+                return
+            boton = min(botones, key=lambda n: n['area'])
+            tocar(path, idx, boton['xy'])
+            self.emit('➡ Seis dígitos comprobados; pulsé Verificar')
+            confirmado = False
             for _ in range(10):
                 time.sleep(2)
-                txt = todo_texto(pantalla(path, idx))
-                if 'error al validar' in txt:
-                    tocar_texto(path, idx, r'^aceptar$', 0)
+                nodos = [n for n in pantalla(path, idx) if n.get('visible', True) and n.get('area', 0) > 0]
+                txt = todo_texto(nodos)
+                if re.search(r'error al validar|c[oó]digo (?:incorrecto|inv[aá]lido|expirado|vencido)', txt):
                     self.emit('✖ Error al validar el código. Usa el correo MÁS RECIENTE y vuelve a enviarlo.')
-                    self.root.after(0, lambda: self.btn_codigo.configure(state='normal'))
                     return
                 if 'ha sido confirmado' in txt:
-                    tocar_texto(path, idx, r'^aceptar$', 0)
+                    aceptar = buscar_texto(nodos, r'^aceptar$')
+                    if aceptar and aceptar.get('enabled'):
+                        tocar(path, idx, aceptar['xy'])
                     self.emit('✅ Correo confirmado')
+                    confirmado = True
                     break
-                if 'tramita' in txt or 'cita médica' in txt or 'vigencia' in txt:
+                en_codigo = bool(re.search(r'c[oó]digo de (?:validaci[oó]n|verificaci[oó]n)', txt)
+                                 or cajas_codigo_validacion(nodos))
+                if not en_codigo and ('tramita' in txt or 'cita médica' in txt or 'vigencia' in txt):
+                    confirmado = True
                     break
+            if not confirmado:
+                self.emit('⚠ IMSS todavía no confirma el código. Revisa la pantalla antes de volver a enviarlo.')
+                return
             time.sleep(2)
             self.pendiente = None
             self.events.put(('aviso', f'⚙ {nombre}: haciendo {tramite}...'))
             self.hacer_tramite(path, idx, nombre, curp, tramite)
         except Exception as exc:
             self.emit(f'ERROR con el código: {exc}')
+        finally:
+            if self.pendiente is not None:
+                self.root.after(0, lambda: self.btn_codigo.configure(state='normal'))
 
     def hacer_tramite(self, path, idx, nombre, curp, tramite):
         encontrado = tocar_texto(path, idx, TRAMITES[tramite], 5)

@@ -13,6 +13,13 @@ Si el PIN no se acepta, avisa y espera tu intervencion en la instancia,
 sin introducirlo repetidamente. Tambien enfoca el campo de PIN al confirmar
 la identidad en IMSS. El codigo que llega por correo sigue siendo manual.
 
+CODIGO DEL CORREO (SEIS DIGITOS)
+Pega los seis digitos en "Codigo del correo" y pulsa "2. ENVIAR CODIGO".
+El bot escribe solo en las casillas de validacion, sin mezclar CURP/correo.
+Comprueba los seis digitos escritos antes de pulsar Verificar. Si falta alguno,
+limpia las casillas ocupadas y repite una vez. Si aun no coincide o Verificar
+sigue desactivado, avisa y espera tu intervencion; no inicia el tramite.
+
 Al reducir la cantidad elegida se conservan las otras instancias existentes.
 La cantidad queda fija mientras se preparan las instancias.
 
