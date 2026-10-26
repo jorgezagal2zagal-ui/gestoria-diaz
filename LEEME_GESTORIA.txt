@@ -1,0 +1,24 @@
+GESTORIA DIAZ - PIN AUTOMATICO Y DE 1 A 5 INSTANCIAS
+
+1. Cierra la ventana de la version anterior del bot.
+2. Extrae este ZIP y reemplaza gestoria_5_instancias.py en la carpeta habitual
+   del bot para conservar el mapa de instancias y los correos usados.
+3. Abre gestoria_5_instancias.py con Python en Windows.
+4. Elige cuantas instancias quieres abrir: 1, 2, 3, 4 o 5.
+5. Comprueba la ruta de ldconsole.exe y pulsa PREPARAR / ENCENDER.
+
+El bot usa el PIN que ya estaba configurado para desbloquear Android.
+Comprueba que Android se haya desbloqueado antes de abrir IMSS Digital.
+Si el PIN no se acepta, avisa y espera tu intervencion en la instancia,
+sin introducirlo repetidamente. Tambien enfoca el campo de PIN al confirmar
+la identidad en IMSS. El codigo que llega por correo sigue siendo manual.
+
+Al reducir la cantidad elegida se conservan las otras instancias existentes.
+La cantidad queda fija mientras se preparan las instancias.
+
+Requisitos: Windows, Python con Tkinter, LDPlayer con ldconsole.exe y adb.exe,
+y una instancia PLANTILLA con IMSS Digital instalado.
+
+Verificacion de desarrollo: pruebas automatizadas con ADB simulado y
+comprobacion real de la interfaz Tkinter en Linux. La operacion con LDPlayer
+en Windows debe comprobarse en el equipo donde estan los emuladores.
