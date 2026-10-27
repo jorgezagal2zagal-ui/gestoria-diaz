@@ -70,17 +70,14 @@ class SpecialPageTests(unittest.TestCase):
         return driver, body, button
 
     def recovery(self, driver, cancelled=lambda: False):
-        now = [0.0]
-        def sleep(seconds): now[0] += seconds
-        return engine.SpecialPages(driver, cancelled, Mock(),
-                                   clock=lambda: now[0], sleep=sleep), now
+        return engine.SpecialPages(driver, cancelled, Mock()), None
 
-    def test_rate_limit_waits_then_refreshes_once_and_can_continue(self):
+    def test_rate_limit_refreshes_immediately_once_and_can_continue(self):
         driver, body, _ = self.page('Too Many Requests')
         driver.refresh.side_effect = lambda: setattr(body, 'text', 'Sign in')
-        recovery, clock = self.recovery(driver)
-        self.assertGreaterEqual(recovery.handle(), 60)
-        self.assertGreaterEqual(clock[0], 60)
+        recovery, _ = self.recovery(driver)
+        with patch.object(engine.time, 'sleep', side_effect=AssertionError('Refresh must be immediate')):
+            self.assertEqual(recovery.handle(), 0)
         driver.refresh.assert_called_once()
         self.assertIsNone(recovery.handle())
 
@@ -96,12 +93,10 @@ class SpecialPageTests(unittest.TestCase):
                 ['chrome','edge'], lambda: False, Mock(), attempt)
         attempt.assert_called_once()
 
-    def test_pause_is_cancellable_without_waiting_a_minute(self):
+    def test_cancelled_attempt_does_not_refresh(self):
         driver, _, _ = self.page('Too Many Requests')
-        now = [0.0]
-        recovery = engine.SpecialPages(driver, lambda: now[0] >= 1, Mock(),
-            clock=lambda: now[0], sleep=lambda value: now.__setitem__(0, now[0]+value))
-        with self.assertRaises(engine.RateLimited): recovery.handle()
+        recovery, _ = self.recovery(driver, cancelled=lambda: True)
+        with self.assertRaises(engine.SkipRequested): recovery.handle()
         driver.refresh.assert_not_called()
 
     def test_refresh_error_does_not_switch_browsers(self):

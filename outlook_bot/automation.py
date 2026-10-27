@@ -122,11 +122,8 @@ NOTICE_OK = "//button[translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 class SpecialPages:
     """Handle the supplied Microsoft screens without retrying a throttle in another browser."""
-    def __init__(self, driver, cancelled, report, cooldown=60, clock=None, sleep=None):
+    def __init__(self, driver, cancelled, report):
         self.driver, self.cancelled, self.report = driver, cancelled, report
-        self.cooldown = cooldown
-        self.clock = clock or time.monotonic
-        self.sleep = sleep or time.sleep
         self.refreshed = False
         self.notice_clicked = False
 
@@ -146,21 +143,15 @@ class SpecialPages:
         if 'too many requests' in text:
             if self.refreshed:
                 raise RateLimited('Microsoft sigue limitando solicitudes. Intenta más tarde.')
-            self.report('Microsoft limita solicitudes. Espero 60 segundos antes de recargar una vez.')
-            started = self.clock()
-            end = started + self.cooldown
-            while self.clock() < end:
-                if self.cancelled():
-                    raise RateLimited('Pausa por límite de solicitudes cancelada.')
-                self.sleep(min(.25, max(0, end - self.clock())))
+            self.report('Too Many Requests: recargo la página ahora, una sola vez.')
             if self.cancelled():
-                raise RateLimited('Pausa por límite de solicitudes cancelada.')
+                raise SkipRequested()
             self.refreshed = True
             try:
                 self.driver.refresh()
             except Exception:
                 raise RateLimited('No se pudo recargar la página limitada por Microsoft.') from None
-            return self.clock() - started
+            return 0
         if password_unavailable(text):
             raise LoginFailure('Inicio con contraseña no disponible')
         host = urlsplit(self.driver.current_url).hostname
