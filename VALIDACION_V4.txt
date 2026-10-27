@@ -1,0 +1,30 @@
+V4 SIMPLE - VALIDACION LOCAL
+
+173 pruebas de IMSS, conexion, cola y reconocimiento automatico: aprobadas.
+31 pruebas del Outlook original: aprobadas.
+20 escenarios en Chromium con bandejas simuladas: aprobados.
+Total: 224 pruebas automaticas, sin autenticar cuentas ni hacer tramites reales.
+
+Prueba de interfaz: correo y CURP en el mismo formulario, un INICIAR, sin
+remitente/asunto, sin boton USAR adicional, sin popup de lector y sin otro panel.
+Outlook simulado confirma bandeja antes de IMSS; el codigo corresponde al mismo
+correo/CURP; se confirma el resultado simulado y se cierra el navegador al salir.
+
+El lector automatico se prueba con mensajes IMSS, fechas, codigos ambiguos,
+otros servicios, dominios parecidos, CURP distinta y mensajes antiguos.
+La compatibilidad del lector con filtros explicitos sigue cubierta por pruebas,
+pero la interfaz publica usa deteccion automatica y no muestra configuracion.
+Los tres accesos heredados se comprueban como redirecciones al mismo lanzador.
+Los lanzadores separados del Outlook original no se distribuyen en esta copia;
+su codigo fuente original y los respaldos se conservan intactos.
+
+Reproducir en el repositorio:
+python -m unittest discover -s tests -v
+python -m unittest discover -s outlook_bot -p "test_*.py" -v
+Con pantalla Tk: python tests/gui_simple_check.py
+Con Chromium y Playwright de pruebas: PYTHONPATH=. python tests/browser_reader_check.py
+
+El ZIP se extrae, se validan hashes y se importan los componentes desde la copia
+extraida. Los .bat se revisan en Linux; falta la prueba real de Windows/LDPlayer
+y de la estructura actual de Outlook con tus cuentas. No se asegura una prueba
+real del servicio IMSS desde la nube.

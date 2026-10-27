@@ -27,7 +27,7 @@ class OutlookSection(OutlookWorker):
         if not self.process_lock.acquire():
             messagebox.showerror(
                 "Panel único",
-                "Cierra el Outlook V3 separado antes de abrir el panel único.",
+                "Ya hay un bot abierto. Usa esa ventana o ciérrala antes de abrir otra copia.",
                 parent=self.root,
             )
             self.root.destroy()
@@ -51,88 +51,48 @@ class OutlookSection(OutlookWorker):
             value="Carga las cuentas una vez. Elige el correo aquí; ambos bots usarán el mismo."
         )
         self.active_email = tk.StringVar(value="Correo activo en ambos bots: pendiente")
-        frame = tk.Frame(parent, bg="#222229", padx=12, pady=12)
-        frame.pack(fill="x", padx=24, pady=8)
-        tk.Label(
-            frame,
-            text="CORREO ÚNICO · OUTLOOK + IMSS",
-            font=("Segoe UI", 11, "bold"),
-            fg="#d9b75b",
-            bg="#222229",
-        ).pack(anchor="w")
+        frame = tk.Frame(parent, bg="#222229")
+        frame.pack(fill="x")
         row = tk.Frame(frame, bg="#222229")
-        row.pack(fill="x", pady=(8, 4))
+        row.pack(fill="x")
         tk.Label(row, text="Correo", fg="white", bg="#222229").grid(
             row=0, column=0, sticky="w"
         )
         self.choice = ttk.Combobox(
-            row, textvariable=self.email, values=(AUTO,), width=43
+            row, textvariable=self.email, values=(AUTO,), width=38
         )
         self.choice.grid(row=0, column=1, padx=6, sticky="ew")
         self.choice.bind("<<ComboboxSelected>>", lambda event: self.choose())
-        tk.Label(row, text="Contraseña inicial", fg="white", bg="#222229").grid(
-            row=0, column=2, sticky="w"
-        )
+        tk.Label(row, text="Contraseña", fg="white", bg="#222229").grid(row=0, column=2)
         self.password_entry = ttk.Entry(
-            row, textvariable=self.password, show="*", width=22
+            row, textvariable=self.password, show="*", width=20
         )
         self.password_entry.grid(row=0, column=3, padx=6)
-        self.start_button = ttk.Button(row, text="USAR CORREO", command=self.add_or_use)
-        self.start_button.grid(row=0, column=4)
         row.columnconfigure(1, weight=1)
+        self.start_button = ttk.Button(
+            frame, text="Usar correo", command=self.add_or_use
+        )
         actions = tk.Frame(frame, bg="#222229")
-        actions.pack(fill="x", pady=4)
+        actions.pack(fill="x", pady=(6, 0))
         self.import_button = ttk.Button(
-            actions, text="Importar cuentas TXT", command=self.load
+            actions, text="Cargar cuentas TXT", command=self.load
         )
-        self.import_button.pack(side="left", padx=(0, 6))
+        self.import_button.pack(side="left")
         self.auto_button = ttk.Button(
-            actions, text="Usar siguiente disponible", command=self.use_auto
+            actions, text="Siguiente disponible", command=self.use_auto
         )
-        self.auto_button.pack(side="left", padx=(0, 6))
-        ttk.Button(actions, text="Resultados Outlook", command=self.show_history).pack(
+        self.auto_button.pack(side="left", padx=6)
+        tk.Label(actions, textvariable=self.count, fg="#c9c9c9", bg="#222229").pack(
             side="left", padx=6
         )
-        self.skip_button = ttk.Button(
-            actions,
-            text="Omitir correo actual",
-            command=connection.skip_current,
-            state="disabled",
-        )
-        self.skip_button.pack(side="left", padx=6)
-        self.stop_button = ttk.Button(
-            actions, text="Detener flujo", command=connection.stop, state="disabled"
-        )
-        self.stop_button.pack(side="right")
+        self.skip_button = connection.skip_button
+        self.stop_button = connection.stop_button
         self.manage_buttons = [
             self.import_button,
             self.auto_button,
             self.choice,
             self.password_entry,
         ]
-        for variable, color in (
-            (self.count, "#c9c9c9"),
-            (self.active_email, "#d9b75b"),
-            (self.status, "white"),
-            (self.history_status, "#c9c9c9"),
-        ):
-            tk.Label(
-                frame,
-                textvariable=variable,
-                bg="#222229",
-                fg=color,
-                anchor="w",
-                justify="left",
-                wraplength=850,
-            ).pack(fill="x", pady=2)
-        tk.Label(
-            frame,
-            text="Si ya importaste la cuenta, solo selecciónala. La contraseña se pide una vez para cuentas nuevas y no se guarda en disco.",
-            bg="#222229",
-            fg="#c9c9c9",
-            wraplength=850,
-            justify="left",
-        ).pack(anchor="w", pady=(4, 0))
         self.root.after(100, self.drain)
         self.root.after(200, self.heartbeat)
         self.thread = threading.Thread(target=self.listen, daemon=True)
@@ -161,9 +121,7 @@ class OutlookSection(OutlookWorker):
         self.account_lookup = {a.address.casefold(): a for a in self.accounts}
         self.bridge.publish([a.address for a in self.accounts], self.accepting)
         self.catalog_dirty = False
-        self.count.set(
-            f"{len(self.accounts)} cuentas cargadas · la selección se comparte con IMSS"
-        )
+        self.count.set(f"{len(self.accounts)} cuentas cargadas")
         self.choice.configure(
             values=(AUTO,) + tuple(a.address for a in self.accounts[:200])
         )
@@ -182,14 +140,23 @@ class OutlookSection(OutlookWorker):
         if not self.shutdown.is_set():
             self.root.after(1000, self.heartbeat)
 
+    def activate_for_request(self):
+        if self.email.get() == AUTO and not self.accounts:
+            messagebox.showerror(
+                "Correo",
+                "Escribe el correo y contraseña, o carga tus cuentas TXT.",
+                parent=self.root,
+            )
+            return False
+        return bool(self.add_or_use())
+
     def add_or_use(self):
         if self.locked():
             self.status.set("Espera o pausa el lote antes de cambiar el correo.")
             return
         address = self.email.get().strip()
         if address == AUTO:
-            self.use_auto()
-            return
+            return self.use_auto()
         existing = self.account_lookup.get(address.casefold())
         try:
             if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", address):
@@ -216,9 +183,8 @@ class OutlookSection(OutlookWorker):
             self.connection.preferred_email.set(address.casefold())
             self.accepting = True
             self.publish()
-            self.status.set(
-                "Correo elegido para ambos bots. Escribe la CURP y pulsa INICIAR en IMSS."
-            )
+            self.status.set("Correo compartido listo.")
+            return True
         except ValueError as exc:
             messagebox.showerror("Correo compartido", str(exc), parent=self.root)
         except OSError:
@@ -251,9 +217,8 @@ class OutlookSection(OutlookWorker):
                 "No se pudo activar el modo automático; revisa el almacenamiento."
             )
             return
-        self.status.set(
-            "Automático: ambos bots tomarán el siguiente correo disponible. Para lotes se usa este modo."
-        )
+        self.status.set("Siguiente correo disponible.")
+        return self.accepting
 
     def load(self):
         if self.locked():

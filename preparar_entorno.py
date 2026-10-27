@@ -34,7 +34,7 @@ def main():
         signature = hashlib.sha256(requirements.read_bytes()).hexdigest()
         marker = folder / "gestoria-requisitos.json"
         if not interpreter.exists():
-            print("Preparando entorno local de Gestoría Díaz V3...")
+            print("Preparando entorno local de Gestoría Díaz V4...")
             venv.EnvBuilder(with_pip=True, symlinks=os.name != "nt").create(folder)
         installed = False
         try:
@@ -63,7 +63,7 @@ def main():
                 timeout=15,
             )
             marker.write_text(json.dumps({"requisitos": signature}), encoding="utf-8")
-        print("Entorno V3 listo.")
+        print("Entorno V4 listo.")
         return 0
     except (OSError, subprocess.SubprocessError):
         print(

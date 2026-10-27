@@ -9,7 +9,7 @@ import time
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
-from .bridge import Bridge, read_json, write_json
+from .bridge import Bridge, read_json
 from .history import RequestHistory, FIELDS
 from .locking import ProcessLock
 from .reader import normalized
@@ -47,8 +47,8 @@ class ImssConnection:
             self.available = False
         if not self.available:
             messagebox.showerror(
-                "IMSS V3",
-                "Ya hay otro panel IMSS V3 abierto, o no se puede acceder a la carpeta de conexión. Cierra esta copia.",
+                "IMSS V4",
+                "Ya hay otro panel IMSS V4 abierto, o no se puede acceder a la carpeta de conexión. Cierra esta copia.",
                 parent=self.app.root,
             )
             self.app.root.destroy()
@@ -63,8 +63,8 @@ class ImssConnection:
             except (OSError, sqlite3.Error):
                 self.history_error = True
         saved = read_json(self.bridge.root / "preferencias.json") or {}
-        self.sender = tk.StringVar(value=saved.get("sender", ""))
-        self.subject = tk.StringVar(value=saved.get("subject", ""))
+        self.sender = tk.StringVar(value="")
+        self.subject = tk.StringVar(value="")
         self.preferred_email = tk.StringVar(value="")
         saved_timeout = saved.get("code_timeout", 180)
         self.code_timeout = tk.IntVar(
@@ -72,11 +72,9 @@ class ImssConnection:
             if type(saved_timeout) is int and 60 <= saved_timeout <= 300
             else 180
         )
-        self.status = tk.StringVar(
-            value="Listo. Activa Outlook, configura el lector y prepara una instancia."
-        )
+        self.status = tk.StringVar(value="Escribe el correo y la CURP. Pulsa INICIAR.")
         self.detail = tk.StringVar(
-            value="Una solicitud a la vez · Hasta 3 correos · Historial local"
+            value="Outlook abre primero y el código pasa automáticamente a IMSS."
         )
         self.app.root.protocol("WM_DELETE_WINDOW", self.close_window)
         self.app.root.after(200, self.tick)
@@ -108,63 +106,35 @@ class ImssConnection:
             self.app.root.destroy()
 
     def controls(self, parent):
-        frame = tk.Frame(parent, bg="#222229", padx=12, pady=10)
-        frame.pack(fill="x", padx=24, pady=8)
-        row = tk.Frame(frame, bg="#222229")
-        row.pack(fill="x")
-        tk.Checkbutton(
-            row,
-            text="Conexión automática Outlook → IMSS",
-            variable=self.auto,
-            bg="#222229",
-            fg="white",
-            selectcolor="#121217",
-            activebackground="#222229",
-        ).pack(side="left")
-        tk.Label(
-            row,
-            text="VERSIÓN 3",
-            fg="#d9b75b",
-            bg="#222229",
-            font=("Segoe UI", 10, "bold"),
-        ).pack(side="right")
+        frame = tk.Frame(parent, bg="#222229", padx=12, pady=8)
+        frame.pack(fill="x", padx=24, pady=6)
         tk.Label(
             frame,
             textvariable=self.status,
-            fg="white",
             bg="#222229",
+            fg="white",
             font=("Segoe UI", 11, "bold"),
             anchor="w",
-            wraplength=820,
-            justify="left",
-        ).pack(fill="x", pady=(8, 3))
+            wraplength=850,
+        ).pack(fill="x")
         tk.Label(
             frame,
             textvariable=self.detail,
-            fg="#c9c9c9",
             bg="#222229",
+            fg="#c9c9c9",
             anchor="w",
-            wraplength=820,
-            justify="left",
-        ).pack(fill="x", pady=(0, 6))
+            wraplength=850,
+        ).pack(fill="x", pady=(2, 5))
         self.progress = ttk.Progressbar(frame, maximum=100)
-        self.progress.pack(fill="x", pady=(0, 8))
+        self.progress.pack(fill="x", pady=4)
         actions = tk.Frame(frame, bg="#222229")
         actions.pack(fill="x")
-        for label, action in [
-            ("Configurar lector", self.settings),
-            ("Comprobar conexión", self.preflight),
-            ("Historial / exportar", self.show_history),
-        ]:
-            ttk.Button(actions, text=label, command=action).pack(
-                side="left", padx=(0, 6)
-            )
         self.skip_button = ttk.Button(
             actions, text="Omitir correo", command=self.skip_current, state="disabled"
         )
-        self.skip_button.pack(side="left", padx=6)
-        ttk.Button(actions, text="Detener", command=self.stop).pack(side="right")
-        self.batch.controls(frame)
+        self.skip_button.pack(side="left")
+        self.stop_button = ttk.Button(actions, text="Detener", command=self.stop)
+        self.stop_button.pack(side="right")
 
     def tick(self):
         if self.app.__dict__.get("outlook") and "entrada_codigo" in self.app.__dict__:
@@ -206,88 +176,18 @@ class ImssConnection:
             self.ui.put((text, detail, stage, self.deadline))
 
     def settings(self):
-        if self.active or (self.__dict__.get("batch") and self.batch.runner.running):
-            self.app.emit(
-                "Detén la solicitud antes de cambiar la configuración del lector."
-            )
-            return
-        window = tk.Toplevel(self.app.root)
-        window.title("Configurar lector V3")
-        window.geometry("680x330")
-        for label, variable in [
-            ("Remitente completo del correo del IMSS", self.sender),
-            ("Parte del asunto del correo que contiene el código", self.subject),
-        ]:
-            ttk.Label(window, text=label).pack(anchor="w", padx=16, pady=(12, 3))
-            ttk.Entry(window, textvariable=variable, width=75).pack(padx=16, fill="x")
-        ttk.Label(window, text="Espera por código, en segundos (60–300)").pack(
-            anchor="w", padx=16, pady=(12, 3)
+        self.app.emit(
+            "El lector reconoce automáticamente el correo del IMSS. No requiere configurar remitente ni asunto."
         )
-        ttk.Spinbox(
-            window,
-            from_=60,
-            to=300,
-            increment=30,
-            textvariable=self.code_timeout,
-            width=10,
-        ).pack(anchor="w", padx=16)
-        ttk.Label(
-            window,
-            text="Copia los datos de un correo real del IMSS. No se guardan contraseñas ni códigos.",
-            wraplength=630,
-        ).pack(padx=16, pady=8)
-
-        def save():
-            try:
-                timeout = self.code_timeout.get()
-                if (
-                    not re.fullmatch(
-                        r"[^\s@]+@[^\s@]+\.[^\s@]+", self.sender.get().strip()
-                    )
-                    or not self.subject.get().strip()
-                    or not 60 <= timeout <= 300
-                ):
-                    raise ValueError()
-                write_json(
-                    self.bridge.root / "preferencias.json",
-                    {
-                        "sender": self.sender.get().strip(),
-                        "subject": self.subject.get().strip(),
-                        "code_timeout": timeout,
-                    },
-                )
-            except (ValueError, tk.TclError):
-                messagebox.showerror(
-                    "Lector",
-                    "Escribe remitente, asunto y un tiempo entre 60 y 300 segundos.",
-                    parent=window,
-                )
-                return
-            except OSError:
-                messagebox.showerror(
-                    "Lector",
-                    "No se pudo guardar la configuración local.",
-                    parent=window,
-                )
-                return
-            window.destroy()
-
-        ttk.Button(window, text="Guardar configuración", command=save).pack(pady=8)
 
     def preflight(self):
         presence = self.bridge.presence()
         checks = [
             ("Lector IMSS único", self.available),
             ("Historial disponible", self.history is not None),
-            ("Outlook V3 conectado", bool(presence)),
+            ("Outlook V4 conectado", bool(presence)),
             ("Correos importados", bool(presence and presence["emails"])),
-            (
-                "Remitente configurado",
-                bool(
-                    re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", self.sender.get().strip())
-                ),
-            ),
-            ("Asunto configurado", bool(self.subject.get().strip())),
+            ("Lector automático IMSS", True),
             ("Ruta de LDPlayer válida", bool(self.app.ruta())),
         ]
         text = "\n".join(("✓ " if ok else "✗ ") + label for label, ok in checks)
@@ -307,7 +207,7 @@ class ImssConnection:
             )
             return
         window = tk.Toplevel(self.app.root)
-        window.title("Solicitudes IMSS · historial V3")
+        window.title("Solicitudes IMSS · historial V4")
         window.geometry("1100x520")
         ttk.Label(
             window,
@@ -399,7 +299,7 @@ class ImssConnection:
             self.app.emit("Pausa el lote antes de iniciar una solicitud individual.")
             return
         if not self.available:
-            self.app.emit("Ya hay otro panel IMSS V3 abierto. Cierra esta copia.")
+            self.app.emit("Ya hay otro panel IMSS V4 abierto. Cierra esta copia.")
             return
         if self.history is None:
             self.app.emit(
@@ -409,17 +309,14 @@ class ImssConnection:
         if self.active or self.app.busy:
             self.app.emit("Espera a que termine la operación actual.")
             return
-        sender, subject = self.sender.get().strip(), self.subject.get().strip()
-        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", sender) or not subject:
-            self.settings()
-            self.app.emit(
-                "Configura remitente y asunto antes de activar el lector automático."
-            )
+        outlook = self.app.__dict__.get("outlook")
+        if outlook and not outlook.activate_for_request():
             return
+        sender, subject = "", ""
         presence = self.bridge.presence()
         if not presence or not presence["emails"]:
             self.app.emit(
-                "Abre Outlook V3, importa las cuentas y pulsa ACTIVAR CONEXIÓN IMSS."
+                "Abre Outlook V4, importa las cuentas y pulsa ACTIVAR CONEXIÓN IMSS."
             )
             return
         try:
@@ -651,7 +548,9 @@ class ImssConnection:
                     f"Intento conectado {number + offset}/3: abriendo la bandeja de {email}"
                 )
                 timeout = self.__dict__.get("current_timeout", 180)
-                self.job = self.bridge.create(email, instance, sender, subject, timeout)
+                self.job = self.bridge.create(
+                    email, instance, sender, subject, timeout, curp=curp
+                )
                 outcome = "fallida"
                 attempt_reason = "No se confirmó el resultado de este intento."
                 self.journal(

@@ -7,7 +7,7 @@ import sys
 import time
 import uuid
 
-PROTOCOL = 3
+PROTOCOL = 4
 
 
 def data_directory():
@@ -16,9 +16,9 @@ def data_directory():
         return (
             (Path(base) if base else Path.home() / "AppData" / "Local")
             / "GestoriaDiazPuente"
-            / "V3"
+            / "V4"
         )
-    return Path(__file__).resolve().parents[1] / ".datos_conexion" / "v3"
+    return Path(__file__).resolve().parents[1] / ".datos_conexion" / "v4"
 
 
 def write_json(path, value):
@@ -138,8 +138,10 @@ class Bridge:
 
         MailboxHealth(self.root).clear(email)
 
-    def create(self, email, instance, sender, subject, code_timeout=180):
-        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", sender) or not subject.strip():
+    def create(self, email, instance, sender, subject, code_timeout=180, curp=""):
+        if (sender or subject) and (
+            not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", sender) or not subject.strip()
+        ):
             raise ValueError(
                 "Configura el remitente completo y el asunto del mensaje del IMSS."
             )
@@ -156,6 +158,7 @@ class Bridge:
                 "instance": instance,
                 "sender": sender.strip().casefold(),
                 "subject": subject.strip(),
+                "curp": curp,
                 "code_timeout": code_timeout,
                 "created": time.time(),
                 "expires": time.time() + 900,

@@ -614,6 +614,7 @@ def marcar_usado(curp, correo, instancia, tramite):
 class App:
     def __init__(self, root, outlook_factory=None):
         self.root = root
+        self.unified_mode = bool(outlook_factory and ImssConnection)
         root.title('GESTORÍA DÍAZ | 1 A 5 MULTIINSTANCIAS')
         root.geometry(f'{min(1000, root.winfo_screenwidth() - 60)}x'
                       f'{min(980, root.winfo_screenheight() - 100)}')
@@ -646,7 +647,7 @@ class App:
 
         tk.Label(root, text='GESTORÍA DÍAZ', bg=NEGRO, fg=DORADO,
                  font=('Segoe UI', 24, 'bold')).pack(pady=(18, 2))
-        tk.Label(root, text='PREPARADOR DE 1 A 5 MULTIINSTANCIAS · IMSS DIGITAL',
+        tk.Label(root, text='OUTLOOK + IMSS DIGITAL' if self.unified_mode else 'PREPARADOR DE 1 A 5 MULTIINSTANCIAS · IMSS DIGITAL',
                  bg=NEGRO, fg=PLATA, font=('Segoe UI', 10, 'bold')).pack(pady=(0, 16))
         self.conexion = ImssConnection(self) if ImssConnection else None
         if self.conexion:
@@ -657,10 +658,9 @@ class App:
                 solicitud_parent = tk.Frame(tabs,bg=NEGRO)
                 instancias_parent = tk.Frame(tabs,bg=NEGRO)
                 registro_parent = tk.Frame(tabs,bg=NEGRO)
-                tabs.add(solicitud_parent,text='Solicitud y correo')
+                tabs.add(solicitud_parent,text='Trámite')
                 tabs.add(instancias_parent,text='Instancias')
                 tabs.add(registro_parent,text='Registro')
-                self.outlook = outlook_factory(solicitud_parent,self.conexion)
                 self.tabs_unificados = tabs
                 root = instancias_parent
         tk.Label(root, text='1 · INSTANCIAS Y PREPARACIÓN', bg=NEGRO, fg=DORADO,
@@ -730,57 +730,69 @@ class App:
                        bg=NEGRO, fg='white', selectcolor=PANEL, activebackground=NEGRO,
                        activeforeground=DORADO).pack(anchor='w')
 
+        if self.unified_mode:
+            self.conexion.batch.controls(root)
+
         # ---- consulta IMSS
-        if self.__dict__.get('outlook'):
+        if self.unified_mode:
             root = solicitud_parent
         cf = tk.Frame(root, bg=PANEL, padx=12, pady=10, highlightbackground=DORADO,
                       highlightthickness=1)
         cf.pack(fill='x', padx=24, pady=(14, 0))
-        tk.Label(cf, text='2 · SOLICITUD IMSS DIGITAL', bg=PANEL, fg=DORADO,
+        tk.Label(cf, text='INICIAR TRÁMITE' if self.unified_mode else '2 · SOLICITUD IMSS DIGITAL', bg=PANEL, fg=DORADO,
                  font=('Segoe UI', 11, 'bold')).grid(row=0, column=0, columnspan=4, sticky='w')
-        tk.Label(cf, text='CURP del cliente', bg=PANEL, fg='white').grid(row=1, column=0, sticky='w', pady=5)
+        if self.unified_mode:
+            correo_parent = tk.Frame(cf,bg=PANEL)
+            correo_parent.grid(row=1,column=0,columnspan=4,sticky='ew',pady=8)
+            self.outlook = outlook_factory(correo_parent,self.conexion)
+        tk.Label(cf, text='CURP del cliente', bg=PANEL, fg='white').grid(row=2, column=0, sticky='w', pady=5)
         self.curp = tk.StringVar()
         tk.Entry(cf, textvariable=self.curp, width=24, font=('Consolas', 12)).grid(
-            row=1, column=1, sticky='w', padx=6)
-        tk.Label(cf, text='Instancia', bg=PANEL, fg='white').grid(row=1, column=2, sticky='e')
+            row=2, column=1, sticky='w', padx=6)
+        tk.Label(cf, text='Instancia', bg=PANEL, fg='white').grid(row=2, column=2, sticky='e')
         self.inst_sel = tk.StringVar(value=self.nombres[0])
         self.selector_instancia = ttk.Combobox(
             cf, textvariable=self.inst_sel, values=self.nombres, width=20,
             state='readonly')
-        self.selector_instancia.grid(row=1, column=3, padx=6)
-        tk.Label(cf, text='Trámite', bg=PANEL, fg='white').grid(row=2, column=0, sticky='w', pady=5)
+        self.selector_instancia.grid(row=2, column=3, padx=6)
+        tk.Label(cf, text='Trámite', bg=PANEL, fg='white').grid(row=3, column=0, sticky='w', pady=5)
         self.tramite = tk.StringVar(value='Constancia de semanas cotizadas')
         ttk.Combobox(cf, textvariable=self.tramite, values=list(TRAMITES), width=44,
-                     state='readonly').grid(row=2, column=1, columnspan=2, sticky='w', padx=6)
+                     state='readonly').grid(row=3, column=1, columnspan=2, sticky='w', padx=6)
         boton_correos = tk.Button(cf, text='📄 Cargar correos (TXT)', command=self.cargar_txt)
-        boton_correos.grid(row=3, column=0, sticky='w', pady=4)
+        boton_correos.grid(row=4, column=0, sticky='w', pady=4)
         self.info_correos = tk.Label(cf, text='Sin archivo de correos', bg=PANEL, fg=PLATA)
-        self.info_correos.grid(row=3, column=1, columnspan=2, sticky='w', padx=6)
+        self.info_correos.grid(row=4, column=1, columnspan=2, sticky='w', padx=6)
         self.btn_consulta = tk.Button(cf, text='🔎 1. INICIAR', command=self.consulta,
                                       bg=DORADO, fg='#111', font=('Segoe UI', 11, 'bold'),
                                       relief='flat', padx=14, pady=5)
-        self.btn_consulta.grid(row=3, column=3, pady=4)
-        tk.Label(cf, text='Código automático' if self.__dict__.get('outlook') else 'Código del correo', bg=PANEL, fg='white').grid(row=4, column=0, sticky='w', pady=5)
+        self.btn_consulta.grid(row=4, column=3, pady=4)
+        tk.Label(cf, text='Código automático' if self.__dict__.get('outlook') else 'Código del correo', bg=PANEL, fg='white').grid(row=5, column=0, sticky='w', pady=5)
         self.codigo = tk.StringVar()
         self.entrada_codigo = tk.Entry(cf, textvariable=self.codigo, width=10, font=('Consolas', 14))
-        self.entrada_codigo.grid(row=4, column=1, sticky='w', padx=6)
+        self.entrada_codigo.grid(row=5, column=1, sticky='w', padx=6)
         self.btn_codigo = tk.Button(cf, text='✅ 2. ENVIAR CÓDIGO', command=self.enviar_codigo,
                                     bg=VERDE, fg='#111', font=('Segoe UI', 11, 'bold'),
                                     relief='flat', padx=14, pady=5, state='disabled')
-        self.btn_codigo.grid(row=4, column=3, pady=4)
+        self.btn_codigo.grid(row=5, column=3, pady=4)
         tk.Button(cf, text='🚪 Cerrar sesión IMSS', command=self.cerrar_sesion).grid(
-            row=4, column=2, sticky='e')
+            row=5, column=2, sticky='e')
         self.correos = []
         self.pendiente = None        # (path, idx, nombre, curp, correo, tramite)
         if self.__dict__.get('outlook'):
             boton_correos.grid_remove()
             self.info_correos.grid_configure(column=0,columnspan=3)
-            self.info_correos.configure(text='El correo elegido arriba se usa en ambos bots.')
+            self.info_correos.configure(text='Outlook e IMSS usarán el mismo correo.')
+            for widget in cf.grid_slaves(row=5):
+                widget.grid_remove()
 
         if self.__dict__.get('outlook'):
             root = registro_parent
         tk.Label(root, text='3 · REGISTRO DE ACTIVIDAD', bg=NEGRO, fg=DORADO,
                  font=('Segoe UI', 11, 'bold'), anchor='w').pack(fill='x', padx=24, pady=(16, 0))
+        if self.unified_mode:
+            ttk.Button(root,text='Historial de solicitudes',command=self.conexion.show_history).pack(anchor='w',padx=24,pady=6)
+            ttk.Button(root,text='Resultados de correos Outlook',command=self.outlook.show_history).pack(anchor='w',padx=24,pady=6)
         self.log = tk.Text(root, bg='#1d1d24', fg='#eeeeee', font=('Consolas', 9),
                            state='disabled', relief='flat')
         self.log.pack(fill='both', expand=True, padx=24, pady=(12, 18))
@@ -1606,6 +1618,5 @@ class App:
 
 
 if __name__ == '__main__':
-    root = tk.Tk()
-    App(root)
-    root.mainloop()
+    from panel_unificado import main
+    main()

@@ -97,7 +97,12 @@ class OutlookWorker:
             self._record_result(email, "Entró a la bandeja", "Modo conectado al IMSS")
             self._post(lambda: self._account_status(email, "Bandeja abierta"))
             reader = OutlookReader(
-                driver, request["sender"], request["subject"], cancelled, report
+                driver,
+                request["sender"],
+                request["subject"],
+                cancelled,
+                report,
+                expected_curp=request.get("curp", ""),
             )
             special = SpecialPages(driver, cancelled, report)
             baseline_deadline = time.monotonic() + 10
@@ -123,9 +128,7 @@ class OutlookWorker:
                 armed = read_json(self.bridge.job(key) / "started.json")
                 if armed:
                     if not notified:
-                        report(
-                            "Buscando un mensaje nuevo del IMSS con remitente y asunto configurados."
-                        )
+                        report("Leyendo el mensaje nuevo de validación del IMSS.")
                         notified = True
                     waiting = read_json(self.bridge.job(key) / "waiting.json")
                     waiting_since = waiting["at"] if waiting else armed["at"]
@@ -357,4 +360,6 @@ class ConnectedOutlook(App, OutlookWorker):
 
 
 if __name__ == "__main__":
-    ConnectedOutlook().mainloop()
+    from panel_unificado import main
+
+    main()

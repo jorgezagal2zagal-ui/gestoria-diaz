@@ -8,7 +8,7 @@ from conexion.unified import OutlookSection
 def main():
     root = tk.Tk()
     imss.App(root, outlook_factory=OutlookSection)
-    root.title("GESTORÍA DÍAZ V3 | OUTLOOK + IMSS · PANEL ÚNICO")
+    root.title("GESTORÍA DÍAZ V4 | OUTLOOK + IMSS · PANEL ÚNICO")
     root.mainloop()
 
 

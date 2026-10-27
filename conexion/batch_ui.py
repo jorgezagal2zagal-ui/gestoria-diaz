@@ -2,7 +2,6 @@
 
 from pathlib import Path
 import queue
-import re
 import sys
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -56,7 +55,7 @@ class BatchPanel:
             return
         self.window = tk.Toplevel(self.app.root)
         w = self.window
-        w.title("Gestoría Díaz V3 | Cola de solicitudes")
+        w.title("Gestoría Díaz V4 | Cola de solicitudes")
         w.geometry("1160x650")
         w.minsize(900, 550)
         outer = ttk.Frame(w, padding=12)
@@ -288,18 +287,15 @@ class BatchPanel:
                     "Prepara y enciende las instancias antes de iniciar el lote."
                 )
             path = self.app.ruta()
-            sender = c.sender.get().strip()
-            subject = c.subject.get().strip()
+            sender = ""
+            subject = ""
             timeout = c.code_timeout.get()
             interval = self.interval.get()
-            if (
-                not path
-                or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", sender)
-                or not subject
-            ):
-                raise ValueError(
-                    "Revisa ruta de LDPlayer, remitente y asunto del lector."
-                )
+            if not path:
+                raise ValueError("Revisa la ruta de LDPlayer en Instancias.")
+            outlook = self.app.__dict__.get("outlook")
+            if outlook and not outlook.activate_for_request():
+                return
             if not 60 <= timeout <= 300 or not 5 <= interval <= 120:
                 raise ValueError(
                     "Tiempo del lector: 60–300 s; pausa del lote: 5–120 s."

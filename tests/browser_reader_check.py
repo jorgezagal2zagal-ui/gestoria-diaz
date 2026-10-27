@@ -196,5 +196,33 @@ class BrowserReaderTests(unittest.TestCase):
         self.assertEqual(self.reader.scan(self.started), "870621")
 
 
+class AutomaticBrowserReaderTests(BrowserReaderTests):
+    # Run the production reader with both optional filters empty.
+    def setUp(self):
+        super().setUp()
+        self.reader = OutlookReader(self.driver, expected_curp="AAAA900101HDFBCD00")
+        self.reader.baseline()
+
+    def add(
+        self, key="new", code="870621", sender="avisos@imss.gob.mx", offset=1, **options
+    ):
+        return super().add(key, code, sender, offset, **options)
+
+    def test_native_header_mailto_and_international_code(self):
+        self.add(mailto=True, code="０１２３４５")
+        self.assertEqual(self.reader.scan(self.started), "012345")
+
+    def test_wrong_header_sender_cannot_be_spoofed_by_message_body(self):
+        self.add(sender="other@provider.test")
+        self.page.locator("[data-row=new]").click()
+        row = next(
+            r
+            for _, r, _ in self.reader.rows()
+            if r.get_attribute("data-item-id") == "new"
+        )
+        pane = self.driver.find_elements("css selector", PANE)[0]
+        self.assertIsNone(self.reader.inspect(row, pane, self.started))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -36,7 +36,7 @@ def extract_code(text):
     label = r"(?:\bcodigo(?:\s+(?:de\s+)?(?:validacion|verificacion|confirmacion|seguridad|acceso))?|\bverification\s+code|\bsecurity\s+code|\bone.time\s+(?:code|password))"
     matches = re.findall(
         label
-        + r"[^0-9]{0,100}(?<![0-9])((?:[0-9][ \t\r\n-]*){5}[0-9])(?![ \t\r\n-]*[0-9])",
+        + r"[^0-9]{0,100}(?<![a-z0-9])((?:[0-9][ \t\r\n-]*){5}[0-9])(?![a-z0-9])(?![ \t\r\n-]*[0-9])",
         value,
     )
     codes = {re.sub(r"[^0-9]", "", item) for item in matches}
@@ -93,9 +93,19 @@ def visible(elements):
 
 
 class OutlookReader:
-    def __init__(self, driver, sender, subject, cancelled=None, report=None):
+    def __init__(
+        self,
+        driver,
+        sender="",
+        subject="",
+        cancelled=None,
+        report=None,
+        expected_curp="",
+    ):
         self.driver, self.sender = driver, sender.strip().casefold()
         self.subject = normalized(subject.strip())
+        self.automatic = not self.sender and not self.subject
+        self.expected_curp = normalized(expected_curp.strip())
         self.cancelled = cancelled or (lambda: False)
         self.report = report or (lambda text: None)
         self.seen = set()
@@ -251,14 +261,41 @@ class OutlookReader:
                 "Outlook no expone aún la fecha o identidad del mensaje abierto."
             )
             return None
-        if self.sender not in self.sender_address(pane):
+        addresses = self.sender_address(pane)
+        body = self.body(pane)
+        if self.automatic:
+            official = any(
+                address.rsplit("@", 1)[-1] == "imss.gob.mx"
+                or address.rsplit("@", 1)[-1].endswith(".imss.gob.mx")
+                for address in addresses
+            )
+            branded = bool(
+                re.search(
+                    r"\bimss\b|instituto mexicano del seguro social", normalized(body)
+                )
+            )
+            matches_curp = bool(
+                self.expected_curp and self.expected_curp in normalized(body)
+            )
+            if not official and not (branded and matches_curp):
+                self.diagnostic("Esperando el mensaje nuevo de validación del IMSS.")
+                return None
+            # If a CURP is present, it must be the active request's CURP.
+            mentioned = set(
+                re.findall(
+                    r"\b[a-z]{4}[0-9]{6}[hm][a-z]{5}[a-z0-9][0-9]\b", normalized(body)
+                )
+            )
+            if self.expected_curp and mentioned and self.expected_curp not in mentioned:
+                return None
+        elif self.sender not in addresses:
             self.diagnostic(
                 "El remitente visible no coincide; sigo esperando el correo del IMSS."
             )
             return None
-        if self.subject not in normalized(pane.text):
+        if self.subject and self.subject not in normalized(pane.text):
             return None
-        code = extract_code(self.body(pane))
+        code = extract_code(body)
         self.diagnostic(
             "Código nuevo comprobado para la solicitud activa."
             if code
@@ -278,7 +315,17 @@ class OutlookReader:
             for marker, row, preview in self.rows():
                 if self.cancelled():
                     return None
-                if marker in self.seen or self.subject not in normalized(preview):
+                candidate = (
+                    bool(
+                        re.search(
+                            r"\bimss\b|instituto mexicano|codigo|verification code|security code",
+                            normalized(preview),
+                        )
+                    )
+                    if self.automatic
+                    else self.subject in normalized(preview)
+                )
+                if marker in self.seen or not candidate:
                     continue
                 # Retain candidates with a partially loaded body for the next poll.
                 row.click()
