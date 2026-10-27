@@ -79,10 +79,14 @@ class OutlookSection(OutlookWorker):
         )
         actions = tk.Frame(frame, bg="#222229")
         actions.pack(fill="x", pady=(6, 0))
-        self.open_button = ttk.Button(actions, text='ABRIR BANDEJA', command=self.open_mailbox)
-        self.open_button.pack(side='left',padx=(0,6))
-        self.close_button = ttk.Button(actions, text='Cerrar Outlook', command=self.stop_mailbox)
-        self.close_button.pack(side='right')
+        self.open_button = ttk.Button(
+            actions, text="ABRIR BANDEJA", command=self.open_mailbox
+        )
+        self.open_button.pack(side="left", padx=(0, 6))
+        self.close_button = ttk.Button(
+            actions, text="Cerrar Outlook", command=self.stop_mailbox
+        )
+        self.close_button.pack(side="right")
         self.import_button = ttk.Button(
             actions, text="Cargar cuentas TXT", command=self.load
         )
@@ -103,10 +107,22 @@ class OutlookSection(OutlookWorker):
             self.choice,
             self.password_entry,
         ]
-        tk.Label(frame,textvariable=self.status,bg='#222229',fg='#d9b75b',
-                 anchor='w',wraplength=850).pack(fill='x',pady=(6,0))
-        tk.Label(frame,textvariable=self.active_email,bg='#222229',fg='#c9c9c9',
-                 anchor='w',wraplength=850).pack(fill='x',pady=(2,0))
+        tk.Label(
+            frame,
+            textvariable=self.status,
+            bg="#222229",
+            fg="#d9b75b",
+            anchor="w",
+            wraplength=850,
+        ).pack(fill="x", pady=(6, 0))
+        tk.Label(
+            frame,
+            textvariable=self.active_email,
+            bg="#222229",
+            fg="#c9c9c9",
+            anchor="w",
+            wraplength=850,
+        ).pack(fill="x", pady=(2, 0))
         self.root.after(100, self.drain)
         self.root.after(200, self.heartbeat)
         self.thread = threading.Thread(target=self.listen, daemon=True)
@@ -126,82 +142,116 @@ class OutlookSection(OutlookWorker):
             return
         preferred = self.connection.preferred_email.get().casefold()
         excluded = self.bridge.excluded_emails()
-        account = next((a for a in self.accounts if a.address.casefold() == preferred),None) if preferred else next(
-            (a for a in self.accounts if a.address.casefold() not in excluded),None)
+        account = (
+            next((a for a in self.accounts if a.address.casefold() == preferred), None)
+            if preferred
+            else next(
+                (a for a in self.accounts if a.address.casefold() not in excluded), None
+            )
+        )
         if account is None:
-            self.status.set('No quedan cuentas disponibles. Elige otra cuenta.')
+            self.status.set("No quedan cuentas disponibles. Elige otra cuenta.")
             return
         self.job_cancel.clear()
         self.mailbox_opening.set()
-        self.status.set('Abriendo Outlook; IMSS permanece independiente.')
-        self.commands.put(('open',account))
+        self.status.set("Abriendo Outlook; IMSS permanece independiente.")
+        self.commands.put(("open", account))
 
     def stop_mailbox(self):
         if self.connection.active:
             self.connection.stop()
         self.job_cancel.set()
-        self.commands.put(('close',None))
-        self.status.set('Cerrando Outlook; las instancias IMSS permanecen encendidas.')
+        self.commands.put(("close", None))
+        self.status.set("Cerrando Outlook; las instancias IMSS permanecen encendidas.")
 
     def discard_mailbox(self):
         from automation import close_driver
+
         driver, self.warm_driver = self.warm_driver, None
         self.warm_email = None
         close_driver(driver)
 
     def open_account(self, account, browsers, cancelled, report):
-        if self.warm_driver is not None and self.warm_email == account.address.casefold():
+        if (
+            self.warm_driver is not None
+            and self.warm_email == account.address.casefold()
+        ):
             driver, self.warm_driver = self.warm_driver, None
             self.warm_email = None
             try:
                 url = urlsplit(driver.current_url)
-                if url.hostname == 'outlook.live.com' and url.path.startswith('/mail'):
-                    report('Usando la bandeja que ya estaba abierta.')
+                if url.hostname == "outlook.live.com" and url.path.startswith("/mail"):
+                    report("Usando la bandeja que ya estaba abierta.")
                     return driver
             except Exception:
                 pass
             from automation import close_driver
+
             close_driver(driver)
         self.discard_mailbox()
-        return super().open_account(account,browsers,cancelled,report)
+        return super().open_account(account, browsers, cancelled, report)
 
     def prepare_mailbox(self, account):
-        from automation import available_browsers, RateLimited, VerificationRequired, SkipRequested
+        from automation import (
+            available_browsers,
+            RateLimited,
+            VerificationRequired,
+            SkipRequested,
+        )
+
         cancelled = lambda: self.shutdown.is_set() or self.job_cancel.is_set()
+
         def report(text):
-            self._post(lambda value=text: self.status.set(f'{account.address} | {value}'))
+            self._post(
+                lambda value=text: self.status.set(f"{account.address} | {value}")
+            )
+
         try:
             if cancelled():
                 raise SkipRequested()
             browsers = available_browsers()
             if not browsers:
-                raise RuntimeError('No hay navegador compatible.')
-            driver = self.open_account(account,browsers,cancelled,report)
+                raise RuntimeError("No hay navegador compatible.")
+            driver = self.open_account(account, browsers, cancelled, report)
             self.warm_driver, self.warm_email = driver, account.address.casefold()
             if cancelled():
                 raise SkipRequested()
             self.bridge.email_ready(account.address)
-            self._record_result(account.address,'Entró a la bandeja','Bandeja abierta desde el panel Outlook')
-            self._post(lambda: self._account_status(account.address,'Bandeja abierta'))
-            report('Bandeja lista. Ya puedes iniciar el trámite IMSS.')
+            self._record_result(
+                account.address,
+                "Entró a la bandeja",
+                "Bandeja abierta desde el panel Outlook",
+            )
+            self._post(lambda: self._account_status(account.address, "Bandeja abierta"))
+            report("Bandeja lista. Ya puedes iniciar el trámite IMSS.")
         except RateLimited:
             self.accepting = False
-            self._record_result(account.address,'Interrumpido','Microsoft limita solicitudes')
-            report('Microsoft limita solicitudes; Outlook se ha detenido.')
+            self._record_result(
+                account.address, "Interrumpido", "Microsoft limita solicitudes"
+            )
+            report("Microsoft limita solicitudes; Outlook se ha detenido.")
             self.discard_mailbox()
         except VerificationRequired:
-            self.bridge.email_failed(account.address,'verification',3600)
-            self._record_result(account.address,'No logró entrar','Verificación adicional de Microsoft')
-            report('Se requiere verificación adicional. Elige otro correo.')
+            self.bridge.email_failed(account.address, "verification", 3600)
+            self._record_result(
+                account.address,
+                "No logró entrar",
+                "Verificación adicional de Microsoft",
+            )
+            report("Se requiere verificación adicional. Elige otro correo.")
             self.discard_mailbox()
         except SkipRequested:
-            self._record_result(account.address,'Omitido','Apertura detenida por el usuario')
-            report('Apertura detenida.')
+            self._record_result(
+                account.address, "Omitido", "Apertura detenida por el usuario"
+            )
+            report("Apertura detenida.")
             self.discard_mailbox()
         except Exception:
-            self.bridge.email_failed(account.address,'login',600)
-            self._record_result(account.address,'No logró entrar','No se completó el acceso al correo')
-            report('No se pudo abrir la bandeja. Revisa la cuenta.')
+            self.bridge.email_failed(account.address, "login", 600)
+            self._record_result(
+                account.address, "No logró entrar", "No se completó el acceso al correo"
+            )
+            report("No se pudo abrir la bandeja. Revisa la cuenta.")
             self.discard_mailbox()
         finally:
             self.mailbox_opening.clear()
@@ -214,11 +264,24 @@ class OutlookSection(OutlookWorker):
                     command, account = self.commands.get_nowait()
                 except queue.Empty:
                     command = None
-                if command == 'close':
+                if command == "close":
                     self.discard_mailbox()
-                    self._post(lambda: self.active_email.set('Outlook cerrado.'))
-                elif command == 'open':
+                    self._post(lambda: self.active_email.set("Outlook cerrado."))
+                elif command == "open":
                     self.prepare_mailbox(account)
+                elif command == "connected":
+                    server, request = account
+                    opener = server.open_account
+                    finished = server.on_job_finished
+                    # A pre-opened driver stays on the thread which created it.
+                    server.open_account = self.open_account
+                    server.on_job_finished = lambda key: None
+                    try:
+                        server.process(request)
+                    finally:
+                        server.open_account = opener
+                        server.on_job_finished = finished
+                        finished(request["id"])
                 if self.accepting:
                     try:
                         for request in self.bridge.pending():
@@ -227,7 +290,11 @@ class OutlookSection(OutlookWorker):
                             self.process(request)
                     except Exception:
                         self.accepting = False
-                        self._post(lambda: self.status.set('Conexión local interrumpida. Revisa el registro.'))
+                        self._post(
+                            lambda: self.status.set(
+                                "Conexión local interrumpida. Revisa el registro."
+                            )
+                        )
         finally:
             self.discard_mailbox()
 

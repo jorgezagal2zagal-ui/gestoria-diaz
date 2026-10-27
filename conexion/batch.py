@@ -47,6 +47,7 @@ class QueueInput:
     curp: str
     procedure: str
     instance: str = ""
+    preferred: str = ""
 
 
 def valid_curp(value):
@@ -143,6 +144,10 @@ class BatchStore:
                 CREATE INDEX IF NOT EXISTS jobs_state ON jobs(estado,id);
                 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY,job INTEGER,fecha TEXT,accion TEXT);
                 CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);""")
+            if "preferido" not in {r[1] for r in db.execute("PRAGMA table_info(jobs)")}:
+                db.execute(
+                    "ALTER TABLE jobs ADD COLUMN preferido TEXT NOT NULL DEFAULT ''"
+                )
 
     @contextmanager
     def connect(self):
@@ -163,8 +168,15 @@ class BatchStore:
                     raise ValueError("Solicitud inválida")
                 stamp = utcnow()
                 db.execute(
-                    "INSERT OR IGNORE INTO jobs(curp,tramite,instancia,creada,actualizada) VALUES(?,?,?,?,?)",
-                    (item.curp, item.procedure, item.instance, stamp, stamp),
+                    "INSERT OR IGNORE INTO jobs(curp,tramite,instancia,creada,actualizada,preferido) VALUES(?,?,?,?,?,?)",
+                    (
+                        item.curp,
+                        item.procedure,
+                        item.instance,
+                        stamp,
+                        stamp,
+                        item.preferred,
+                    ),
                 )
             added = db.total_changes - before
             if total + added > 100000:
@@ -199,11 +211,46 @@ class BatchStore:
             args = ((status,) if status else ()) + (limit, max(0, offset))
             return [dict(row) for row in db.execute(query, args)]
 
-    def claim(self, instances):
+    def claim(self, instances, capacity=1):
         if not instances or len(instances) > 5:
             raise ValueError("Elige de 1 a 5 instancias")
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            if capacity != 1:
+                if capacity not in (2, 3):
+                    raise ValueError("Máximo tres solicitudes simultáneas")
+                active = db.execute(
+                    "SELECT instancia,curp FROM jobs WHERE estado='en_curso'"
+                ).fetchall()
+                if len(active) >= capacity:
+                    return None
+                blocked = {
+                    r[0]
+                    for r in db.execute(
+                        "SELECT instancia FROM jobs WHERE estado IN ('en_curso','revision')"
+                    )
+                }
+                blocked_curps = {
+                    r[0]
+                    for r in db.execute(
+                        "SELECT curp FROM jobs WHERE estado IN ('en_curso','revision')"
+                    )
+                }
+                free = [n for n in instances if n not in blocked]
+                for row in db.execute(
+                    "SELECT * FROM jobs WHERE estado='pendiente' ORDER BY id"
+                ):
+                    if row["curp"] in blocked_curps:
+                        continue
+                    assigned = row["instancia"] or (free[0] if free else "")
+                    if assigned not in free:
+                        continue
+                    db.execute(
+                        "UPDATE jobs SET estado='en_curso',instancia=?,actualizada=? WHERE id=?",
+                        (assigned, utcnow(), row["id"]),
+                    )
+                    return {**dict(row), "estado": "en_curso", "instancia": assigned}
+                return None
             if db.execute(
                 "SELECT 1 FROM jobs WHERE estado IN ('en_curso','revision') LIMIT 1"
             ).fetchone():
@@ -233,6 +280,9 @@ class BatchStore:
             "limited": "revision",
             "stopped": "revision",
             "sin_correos": "pendiente",
+            "lector_no_listo": "revision",
+            "emulador_no_listo": "revision",
+            "cancelada": "cancelada",
         }
         state = mapping.get(result.status, "revision")
         if result.status in ("limited", "stopped", "detenida") and not result.submitted:
@@ -267,8 +317,8 @@ class BatchStore:
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             updated = db.execute(
-                "UPDATE jobs SET estado=?,intentos=CASE WHEN ?='pendiente' THEN 0 ELSE intentos END,motivo='Revisión manual del operador',actualizada=? WHERE id=? AND estado IN ('revision','fallida')",
-                (action, action, utcnow(), item_id),
+                "UPDATE jobs SET estado=?,intentos=CASE WHEN ?='pendiente' THEN 0 ELSE intentos END,preferido=CASE WHEN ?='pendiente' THEN '' ELSE preferido END,motivo='Revisión manual del operador',actualizada=? WHERE id=? AND estado IN ('revision','fallida')",
+                (action, action, action, utcnow(), item_id),
             ).rowcount
             if updated != 1:
                 raise ValueError("Selecciona una solicitud fallida o en revisión.")

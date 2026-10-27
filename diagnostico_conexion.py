@@ -46,7 +46,9 @@ def main():
             extract_code("Tu código de validación es: 012345") == "012345",
         )
     )
-    manifest = root / "MANIFIESTO_V51.json"
+    manifest = root / "MANIFIESTO_V6.json"
+    if not manifest.exists():
+        manifest = root / "MANIFIESTO_V51.json"
     if not manifest.exists():
         manifest = root / "MANIFIESTO_V5.json"
     if not manifest.exists():

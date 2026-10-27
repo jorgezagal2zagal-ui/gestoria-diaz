@@ -84,6 +84,9 @@ class ImssConnection:
         self.batch = BatchPanel(self)
 
     def close_window(self):
+        parallel = self.__dict__.get("parallel")
+        if parallel:
+            parallel.stop()
         batch = self.__dict__.get("batch")
         if batch:
             batch.runner.stop()
@@ -97,7 +100,9 @@ class ImssConnection:
             deadline = time.monotonic() + 5
 
             def finish_close():
-                if outlook.thread.is_alive() and time.monotonic() < deadline:
+                if (
+                    outlook.thread.is_alive() or (parallel and parallel.alive())
+                ) and time.monotonic() < deadline:
                     self.app.root.after(100, finish_close)
                 else:
                     self.app.root.destroy()
@@ -296,6 +301,8 @@ class ImssConnection:
                 )
 
     def start(self, path, curp, instance, procedure):
+        if self.__dict__.get("parallel"):
+            return self.parallel.submit(path, curp, instance, procedure)
         if self.__dict__.get("batch") and self.batch.runner.running:
             self.app.emit("Pausa el lote antes de iniciar una solicitud individual.")
             return
@@ -307,7 +314,7 @@ class ImssConnection:
                 "No se pudo abrir el historial local. Revisa el permiso de escritura."
             )
             return
-        if self.active or self.app.busy or self.app.__dict__.get('desbloqueando'):
+        if self.active or self.app.busy or self.app.__dict__.get("desbloqueando"):
             self.app.emit("Espera a que termine la operación actual.")
             return
         outlook = self.app.__dict__.get("outlook")
@@ -346,6 +353,8 @@ class ImssConnection:
         ).start()
 
     def stop(self):
+        if self.__dict__.get("parallel"):
+            return self.parallel.stop()
         batch = self.__dict__.get("batch")
         if batch:
             batch.runner.stop()
@@ -363,6 +372,8 @@ class ImssConnection:
         )
 
     def skip_current(self):
+        if self.__dict__.get("parallel"):
+            return self.parallel.skip_selected()
         if self.active and self.stage in ("outlook", "codigo"):
             self.skip.set()
             if self.job:
@@ -392,7 +403,7 @@ class ImssConnection:
                 text = diagnostic["reason"][:250]
                 label = self.__dict__.get("attempt_label", "")
                 self.attempt_detail = f"{label} · {text}"
-            self.cancel.wait(0.5)
+            self.cancel.wait(0.15)
         return {
             "status": "error",
             "reason": "Tiempo de espera agotado o solicitud detenida.",
@@ -496,13 +507,27 @@ class ImssConnection:
         budget = self.__dict__.get("current_max_attempts", 3)
         try:
             self.app.pendiente = None
-            if self.app.__dict__.get('unified_mode'):
-                self.state('emuladores', 'IMSS: preparando la multiinstancia', instance)
-                if not self.app.preparar_solicitud(path, instance, self.cancel.is_set, self.cancel.wait):
-                    status = 'emulador_no_listo'
-                    reason = 'No se confirmó la instancia lista y desbloqueada. Revisa IMSS y PREPARAR / ENCENDER.'
-                    self.journal(request, curp, instance, procedure, 0, '', 'emuladores', 'fallida', reason)
-                    self.state('terminado', 'No se pudo preparar el emulador', reason)
+            if self.app.__dict__.get("unified_mode") and not self.__dict__.get(
+                "preparation"
+            ):
+                self.state("emuladores", "IMSS: preparando la multiinstancia", instance)
+                if not self.app.preparar_solicitud(
+                    path, instance, self.cancel.is_set, self.cancel.wait
+                ):
+                    status = "emulador_no_listo"
+                    reason = "No se confirmó la instancia lista y desbloqueada. Revisa IMSS y PREPARAR / ENCENDER."
+                    self.journal(
+                        request,
+                        curp,
+                        instance,
+                        procedure,
+                        0,
+                        "",
+                        "emuladores",
+                        "fallida",
+                        reason,
+                    )
+                    self.state("terminado", "No se pudo preparar el emulador", reason)
                     return
             for number in range(1, budget + 1):
                 if self.cancel.is_set():
@@ -541,6 +566,10 @@ class ImssConnection:
                     email = next(
                         (v for v in pool if v.casefold() not in excluded), None
                     )
+                if self.__dict__.get("claim_email"):
+                    email = self.claim_email(
+                        pool, excluded, preferred if not attempted else ""
+                    )
                 if email is None:
                     status = "sin_correos"
                     reason = (
@@ -577,7 +606,7 @@ class ImssConnection:
                         self.job,
                         email,
                         instance,
-                        {"ready", "error", "limited", "stopped"},
+                        {"ready", "error", "reader_error", "limited", "stopped"},
                         330,
                     )
                     if ready["status"] != "ready":
@@ -588,10 +617,19 @@ class ImssConnection:
                             if self.__dict__.get("skip") and self.skip.is_set()
                             else "fallida"
                         )
+                        if ready["status"] == "reader_error":
+                            status = "lector_no_listo"
+                            break
                         if ready["status"] in ("limited", "stopped"):
                             status = ready["status"]
                             break
                         continue
+                    if self.__dict__.get("preparation") and not self.preparation():
+                        status = "emulador_no_listo"
+                        reason = attempt_reason = (
+                            "La bandeja está lista, pero no se confirmó Android desbloqueado. Revisa la instancia."
+                        )
+                        break
                     if self.__dict__.get("batch_mode") or self.app.__dict__.get(
                         "outlook"
                     ):
@@ -662,7 +700,7 @@ class ImssConnection:
                         self.job,
                         email,
                         instance,
-                        {"code", "error", "limited", "stopped"},
+                        {"code", "error", "reader_error", "limited", "stopped"},
                         timeout + 10,
                     )
                     if response["status"] != "code":
@@ -676,6 +714,9 @@ class ImssConnection:
                             else "fallida"
                         )
                         self.app.pendiente = None
+                        if response["status"] == "reader_error":
+                            status = "sin_confirmar"
+                            break
                         if response["status"] in ("limited", "stopped"):
                             status = response["status"]
                             break
@@ -757,6 +798,8 @@ class ImssConnection:
                 finally:
                     if self.job:
                         self.bridge.finish(self.job)
+                    if self.__dict__.get("release_email"):
+                        self.release_email(email, self.job)
                     self.job = None
                     if self.cancel.is_set():
                         outcome = "detenida"

@@ -1,36 +1,40 @@
-GESTORIA DIAZ V5.1 - CORRECCION DEL LECTOR DE CODIGOS
-
-Esta copia conserva el panel y el arranque de la V5. El lector reconoce mas
-variantes del encabezado de Outlook y registra ambas pestanas antes de pedir
-el codigo. Evita abrir constancias y mensajes antiguos durante la espera.
+GESTORIA DIAZ V6 - HASTA TRES SOLICITUDES A LA VEZ
 
 1. Cierra la version anterior. Extrae TODO el ZIP en una carpeta nueva.
 2. Abre ABRIR_BOT.bat.
+3. Carga las cuentas en Outlook: TXT con correo:contrasena por linea.
+4. Revisa ldconsole.exe y elige al menos 3 instancias para trabajar tres a la vez.
+5. En A la vez elige 1, 2 o 3; en Instancia deja Automatica.
+6. Escribe CURP y tramite, pulsa AGREGAR / INICIAR. Puedes seguir agregando CURP
+   mientras trabajan las anteriores. El campo se limpia al anadirla a la cola.
 
-Los DOS mecanismos estan visibles en Outlook + IMSS:
+Para tres solicitudes a la vez hacen falta tres instancias y tres cuentas
+DISPONIBLES distintas. Con menos recursos, las solicitudes esperan en la cola.
+Tambien puedes importar las CURP por TXT/CSV desde Lotes.
+Si prefieres una instancia concreta, seleccionarla reserva esa instancia para
+la solicitud; las otras que necesiten la misma esperaran.
 
-OUTLOOK: escribe correo y contrasena, o carga un TXT de cuentas.
-ABRIR BANDEJA funciona sin escribir CURP ni encender un emulador.
-Cerrar Outlook cierra su navegador; deja los emuladores encendidos.
-Si hay un tramite conectado en curso, cerrar Outlook tambien detiene su espera.
+Cada fila muestra su propio correo, instancia y estado. Selecciona la fila para
+ver el detalle o usar Detener seleccionada / Omitir correo seleccionado.
+Detener todas conserva los pendientes. Pausar cola termina las que ya trabajan.
+Si detienes una despues de enviar algo a IMSS, revisa el resultado antes de repetir.
 
-IMSS: revisa la ruta de ldconsole.exe y elige de 1 a 5 instancias.
-PREPARAR / ENCENDER funciona sin cargar cuentas ni iniciar Outlook.
-La ruta elegida se conserva para la siguiente vez.
-Si faltan instancias, debe existir tu instancia PLANTILLA para copiarlas.
+Outlook prepara su bandeja mientras arranca Android. IMSS inicia su solicitud
+cuando ambos estan listos. El codigo se entrega solo a esa CURP, correo e instancia.
+Los movimientos y la deteccion de pantalla avanzan antes, pero siempre se
+comprueban los seis digitos y la confirmacion final de IMSS.
+Una cuenta abierta manualmente se reutiliza en el mismo hilo del navegador.
 
-FLUJO COMPLETO: escribe la CURP y pulsa INICIAR TRAMITE.
-Prepara las instancias si estan apagadas y confirma Android desbloqueado.
-Outlook abre la bandeja antes de que IMSS envie la solicitud.
-Si ya abriste la bandeja del mismo correo, aprovecha ese navegador.
-Lee el mensaje nuevo del IMSS y entrega el codigo a la instancia solicitante.
-No requiere configurar remitente ni asunto.
+CORRECCION DE CAMBIO CONTINUO DE CUENTAS:
+Si falla el inicio de sesion, puede intentar otro correo, hasta 3 por solicitud.
+Si YA ABRIO LA BANDEJA y falla el lector, no lo trata como una contrasena mala:
+mantiene la bandeja abierta y muestra el motivo, sin saltar a otra cuenta.
+Selecciona esa fila y Detener seleccionada para liberarla. Revisa su estado
+antes de reanudarla desde Lotes; las otras solicitudes pueden continuar.
 
-Si IMSS rechaza el codigo, ambos bots cambian al siguiente correo, hasta
-tres intentos. Las pantallas desconocidas se detienen para revision.
-Los estados se muestran en cada seccion y en el progreso superior.
-Los historiales estan en Registro; la cola de solicitudes, en Lotes.
+Los dos bots conservan controles independientes. ABRIR BANDEJA no necesita CURP;
+PREPARAR / ENCENDER no necesita cuentas. El historial esta en Registro.
+La V5.1 completa esta en respaldos, con las versiones anteriores dentro.
 
-El ZIP conserva la V5 completa en respaldos, con las versiones anteriores.
-El motor original de Outlook se conserva sin cambios.
-Se verifico con servicios simulados; falta probar Windows y LDPlayer reales.
+Se probo con servicios simulados. Falta verificar tu Windows/LDPlayer/Outlook
+real. Si tu PC trabaja mejor con menos carga, selecciona 1 o 2 simultaneas.

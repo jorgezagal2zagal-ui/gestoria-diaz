@@ -7,8 +7,10 @@ from conexion.unified import OutlookSection
 
 def main():
     root = tk.Tk()
-    imss.App(root, outlook_factory=OutlookSection)
-    root.title("GESTORÍA DÍAZ V5.1 | OUTLOOK + IMSS · DOS BOTS EN UN PANEL")
+    app = imss.App(root, outlook_factory=OutlookSection)
+    from conexion.parallel_ui import ParallelPanel
+    ParallelPanel(app)
+    root.title("GESTORÍA DÍAZ V6 | HASTA 3 SOLICITUDES SIMULTÁNEAS")
     root.mainloop()
 
 

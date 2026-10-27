@@ -277,6 +277,8 @@ class BatchPanel:
 
     def start(self):
         c = self.connection
+        if c.__dict__.get('parallel'):
+            return c.parallel.start_from_batch()
         try:
             if self.importing or c.active or self.app.busy or self.runner.running:
                 raise ValueError("Espera a que termine la operación actual.")

@@ -8,7 +8,7 @@ import time
 from urllib.parse import urlsplit, unquote
 import unicodedata
 
-ROW = '[role="option"], [role="row"], [data-app-section="MailList"] [data-item-id], [data-app-section="MailList"] [data-convid], [data-testid="message-list"] [data-message-id]'
+ROW = '[role="option"], [role="row"], [role="listitem"][data-convid], [role="listitem"][data-item-id], [data-app-section="MailList"] [data-item-id], [data-app-section="MailList"] [data-itemid], [data-app-section="MailList"] [data-convid], [data-testid="message-list"] [data-message-id]'
 PANE = '[data-app-section*="ReadPane"], [data-app-section*="ReadingPane"], [data-app-section="MailReadCompose"], #ReadingPaneContainerId, [aria-label="Reading pane"], [aria-label="Panel de lectura"], [class*="ReadingPane"], [class*="ReadPane"], [role="article"]'
 HEADER = '[data-testid="message-header"], [data-app-section="MessageHeader"], [class*="MessageHeader"], [class*="messageHeader"], header'
 IDENTITY = (
@@ -261,7 +261,7 @@ class OutlookReader:
             containers = visible(
                 self.driver.find_elements(
                     "css selector",
-                    '[role="listbox"], [data-app-section="MailList"], [aria-label="Message list"], [aria-label="Lista de mensajes"]',
+                    '[role="listbox"], [data-app-section="MailList"], [aria-label*="Message list"], [aria-label*="Lista de mensajes"]',
                 )
             )
             if not containers:
@@ -279,7 +279,7 @@ class OutlookReader:
                     if name == self.initial_view or self.cancelled():
                         continue
                     tab.click()
-                    deadline = time.monotonic() + 2
+                    deadline = time.monotonic() + 8
                     previous = None
                     while not self.cancelled():
                         rows = self.rows()
@@ -294,9 +294,10 @@ class OutlookReader:
                                 break
                             previous = markers
                         if time.monotonic() >= deadline:
-                            raise RuntimeError(
-                                "No se pudo confirmar la referencia de ambas pestañas de Outlook."
+                            self.diagnostic(
+                                "La pestaña alternativa tarda en cargar; sus mensajes necesitarán fecha verificable."
                             )
+                            break
                         time.sleep(0.2)
             finally:
                 tabs[self.initial_view].click()

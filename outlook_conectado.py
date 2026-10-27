@@ -28,7 +28,7 @@ class OutlookWorker:
         return try_account(account, browsers, cancelled, report)
 
     def listen(self):
-        while not self.shutdown.wait(0.5):
+        while not self.shutdown.wait(0.15):
             if not self.accepting:
                 continue
             try:
@@ -78,6 +78,8 @@ class OutlookWorker:
         )
         driver = None
         inbox_opened = False
+        reader_failure = ""
+        reader = None
 
         def report(text):
             self._post(lambda: self.status.set(f"{email} | {text}"))
@@ -137,11 +139,16 @@ class OutlookWorker:
                     waiting_since = waiting["at"] if waiting else armed["at"]
                     deadline = request.get("code_timeout", 180) if waiting else 240
                     if time.time() - waiting_since > deadline:
+                        reader_failure = (
+                            "La bandeja sigue abierta, pero no llegó un código nuevo verificable. "
+                            + reader.last_diagnostic
+                        )
+                        report(reader_failure)
                         self.bridge.reply(
                             key,
-                            "error",
-                            reason="No llegó un código nuevo verificable dentro del tiempo configurado. "
-                            + reader.last_diagnostic,
+                            "reader_error",
+                            reason=reader_failure
+                            + " No se cambiará de cuenta automáticamente.",
                         )
                         break
                     if special.handle() is not None:
@@ -153,7 +160,7 @@ class OutlookWorker:
                         self._post(lambda: self.skip_button.configure(state="disabled"))
                         report("Código entregado a la instancia solicitante.")
                         while not cancelled():
-                            self.job_cancel.wait(0.5)
+                            self.job_cancel.wait(0.15)
                         break
                     url = urlsplit(driver.current_url)
                     if (
@@ -168,7 +175,7 @@ class OutlookWorker:
                         driver.refresh()
                         refreshes += 1
                         last_refresh = time.monotonic()
-                self.job_cancel.wait(2)
+                self.job_cancel.wait(0.35)
         except RateLimited:
             self.accepting = False
             self._record_result(
@@ -208,7 +215,24 @@ class OutlookWorker:
                 "error" if self.accepting else "stopped",
                 reason="Intento omitido o detenido.",
             )
-        except Exception:
+        except Exception as error:
+            if inbox_opened:
+                known = {
+                    "No se pudo reconocer la lista de mensajes; IMSS no se iniciará.",
+                    "No se pudo confirmar la referencia de ambas pestañas de Outlook.",
+                    "La bandeja de Outlook ya no está abierta.",
+                }
+                detail = (
+                    str(error)
+                    if str(error) in known
+                    else (
+                        reader.last_diagnostic
+                        if reader
+                        else "No se reconoció la bandeja."
+                    )
+                )
+                reader_failure = "Bandeja abierta; lector detenido: " + detail
+                report(reader_failure)
             if not inbox_opened:
                 self.bridge.email_failed(email, "login", 600)
             self._record_result(
@@ -224,10 +248,20 @@ class OutlookWorker:
                 )
             )
             self.bridge.reply(
-                key, "error", reason="No se pudo abrir o leer esta cuenta de Outlook."
+                key,
+                "reader_error" if inbox_opened else "error",
+                reason=(
+                    reader_failure + " No se cambiará de cuenta automáticamente."
+                    if inbox_opened
+                    else "No se completó el inicio de sesión de Outlook."
+                ),
             )
         finally:
-            close_driver(driver)
+            retained = False
+            if reader_failure and self.__dict__.get("hold_failed_inbox"):
+                retained = self.hold_failed_inbox(driver, email, reader_failure)
+            if not retained:
+                close_driver(driver)
             self.code_delivered = False
             if self.job_cancel.is_set() and not self.bridge.cancelled(key):
                 response = self.bridge.response(key) or {}
@@ -253,6 +287,8 @@ class OutlookWorker:
                 )
 
             self._post(restore_controls)
+            if self.__dict__.get("on_job_finished"):
+                self.on_job_finished(key)
 
 
 class ConnectedOutlook(App, OutlookWorker):

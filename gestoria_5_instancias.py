@@ -21,6 +21,7 @@ import unicodedata
 from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 from html import unescape
+from conexion.timing import interaction_pause
 try:
     from conexion.imss_link import ImssConnection
 except ImportError:
@@ -580,7 +581,7 @@ def buscar_texto(nodos, patron):
 
 def tocar(console, idx, xy):
     adb(console, idx, 'shell', 'input', 'tap', str(xy[0]), str(xy[1]))
-    time.sleep(1)
+    interaction_pause(1)
 
 
 def escribir(console, idx, xy, texto):
@@ -588,7 +589,7 @@ def escribir(console, idx, xy, texto):
     adb(console, idx, 'shell', 'input', 'keyevent', 'KEYCODE_MOVE_END')
     adb(console, idx, 'shell', 'input', 'keyevent', *(['KEYCODE_DEL'] * 60))
     adb(console, idx, 'shell', 'input', 'text', texto)
-    time.sleep(0.8)
+    interaction_pause(.8)
 
 
 def tocar_texto(console, idx, patron, bajar=4):
@@ -847,8 +848,10 @@ class App:
                 marco.pack(fill='x', pady=3)
             else:
                 marco.pack_forget()
-        self.selector_instancia.configure(values=self.nombres)
-        if self.inst_sel.get() not in self.nombres:
+        automatic = bool(self.__dict__.get('conexion') and self.conexion.__dict__.get('parallel'))
+        opciones = ('Automática',)+self.nombres if automatic else self.nombres
+        self.selector_instancia.configure(values=opciones)
+        if self.inst_sel.get() not in opciones:
             self.inst_sel.set(self.nombres[0])
         return True
 
@@ -926,7 +929,7 @@ class App:
         self.selector_cantidad.configure(state='disabled')
         threading.Thread(target=self.work, args=(path,), daemon=True).start()
 
-    def work(self, path, notify=True, cancelled=None):
+    def work(self, path, notify=True, cancelled=None, wait_boot=True):
         nombres = tuple(self.nombres)
         cancelled = cancelled or (lambda: False)
         try:
@@ -982,7 +985,7 @@ class App:
                     inst = esperar_instancias(path, lambda datos: n in datos and datos[n]['running'], timeout=12, cancelled=cancelled)
             # 3) revisar: reparar nombres perdidos y reintentar las que no prendieron
             inst = esperar_instancias(path, lambda datos: all(
-                n in datos and datos[n]['running'] and datos[n]['android'] for n in nombres), timeout=90, cancelled=cancelled)
+                n in datos and datos[n]['running'] and (datos[n]['android'] or not wait_boot) for n in nombres), timeout=90 if wait_boot else 12, cancelled=cancelled)
             for n in nombres:
                 if cancelled():
                     return False
@@ -1191,7 +1194,7 @@ class App:
         return destino / nombre_archivo
 
     def consulta(self):
-        if lote_activo(self):
+        if lote_activo(self) and not (self.__dict__.get('conexion') and self.conexion.__dict__.get('parallel')):
             self.emit('Pausa el lote antes de iniciar una solicitud individual.')
             return
         path = self.ruta()
@@ -1229,11 +1232,9 @@ class App:
             self.emit(f'🔎 {nombre}: {tramite} · {curp} · {correo}')
             abrir_app(path, nombre, idx)
             nodos = []
-            for _ in range(12):
+            for nodos in self.observar(path,idx,12,2):
                 if conexion_cancelada(self):
                     return
-                time.sleep(2)
-                nodos = pantalla(path, idx)
                 txt = todo_texto(nodos)
                 if 'permiso de ubicaci' in txt:
                     tocar_texto(path, idx, r'^cancelar$', 0)
@@ -1271,11 +1272,9 @@ class App:
             aviso_cambio_sin_boton = False
             pin_enviado = False
             aviso_pin_manual = False
-            for _ in range(30):
+            for nodos in self.observar(path,idx,30,2):
                 if conexion_cancelada(self):
                     return
-                time.sleep(2)
-                nodos = pantalla(path, idx)
                 txt = todo_texto([n for n in nodos if n.get('visible', True) and n.get('area', 0) > 0])
                 if aviso_cambio_dispositivo(nodos):
                     if not cambio_pulsado:
@@ -1339,6 +1338,23 @@ class App:
         self.btn_codigo.configure(state='disabled')
         threading.Thread(target=self._codigo, args=(codigo, *self.pendiente), daemon=True).start()
 
+    def observar(self,path,idx,polls,seconds):
+        """Inspect immediately in fast mode, preserving the original time budget."""
+        fast=self.__dict__.get('fast_mode',False)
+        interval=.35 if fast else seconds
+        deadline=time.monotonic()+polls*seconds
+        maximum=int(polls*seconds/interval)+1 if fast else polls
+        for _ in range(maximum):
+            if conexion_cancelada(self):
+                return
+            if not fast:
+                time.sleep(seconds)
+            yield pantalla(path,idx)
+            if fast:
+                if time.monotonic()>=deadline:
+                    return
+                time.sleep(interval)
+
     def meter_codigo(self, path, idx, codigo):
         """Escribe solo en las casillas de validación y confirma los seis dígitos."""
         if not isinstance(codigo, str) or not re.fullmatch(r'[0-9]{6}', codigo):
@@ -1379,8 +1395,8 @@ class App:
                 if cantidad == 6 or pos == 0:
                     tocar(path, idx, cajas[pos if cantidad == 6 else 0]['xy'])
                 adb(path, idx, 'shell', 'input', 'keyevent', 'KEYCODE_' + digito)
-                time.sleep(.3)
-            time.sleep(.6)
+                interaction_pause(.3)
+            interaction_pause(.6)
             cajas = cajas_codigo_validacion(pantalla(path, idx))
             if len(cajas) == cantidad and codigo_escrito(cajas) == codigo:
                 return True
@@ -1467,11 +1483,10 @@ class App:
             tocar(path, idx, boton['xy'])
             self.emit('➡ Seis dígitos comprobados; pulsé Verificar')
             confirmado = False
-            for _ in range(10):
+            for vistos in self.observar(path,idx,10,2):
                 if conexion_cancelada(self):
                     return
-                time.sleep(2)
-                nodos = [n for n in pantalla(path, idx) if n.get('visible', True) and n.get('area', 0) > 0]
+                nodos = [n for n in vistos if n.get('visible', True) and n.get('area', 0) > 0]
                 txt = todo_texto(nodos)
                 if error_codigo_rechazado(nodos):
                     self.cambiar_correo_tras_error(path, idx, nombre, curp, correo, tramite, nodos)

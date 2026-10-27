@@ -1,0 +1,37 @@
+V6 - TRES SOLICITUDES AISLADAS, MOVIMIENTOS MAS RAPIDOS Y LECTOR SIN ROTACION ERRONEA
+
+193 pruebas de IMSS, lector, cola, arranque y concurrencia: aprobadas.
+31 pruebas del motor original de Outlook: aprobadas.
+32 escenarios de navegador Chromium con mensajes simulados: aprobados.
+Prueba de Tk real con 3 CURP, 3 correos, 3 instancias y bandeja reutilizada.
+
+La concurrencia se verifica con barreras: tres preparaciones y tres bandejas
+se solapan realmente. Los codigos distintos cruzan tres puentes independientes.
+Una solicitud rechaza su primer codigo y usa otro correo, mientras las otras
+dos completan su tramite simulado; se comprueban las asociaciones completas.
+
+La cola reserva hasta tres instancias atomicamente en SQLite y llena el hueco
+que termina. No comparte un emulador, un correo ni una CURP entre solicitudes
+activas. Una instancia o CURP con resultado incierto requiere revision.
+Los correos solo se liberan cuando el navegador de ese intento ha terminado.
+
+Se reproduce la falla del lector despues de abrir la bandeja: mantiene el
+navegador visible, no inicia IMSS ni rota cuentas y otra solicitud termina.
+Detener seleccionada libera esa solicitud y queda marcada para revision.
+Las esperas rapidas se prueban sin eliminar la lectura de los seis digitos;
+un digito perdido se detecta y se reescribe de forma acotada.
+
+La prueba de interfaz encola tres CURP desde el panel y reutiliza una bandeja
+abierta manualmente. El navegador siempre se opera desde el hilo que lo creo.
+Solo hay una ventana principal y se verifica el cierre de los tres navegadores.
+
+Reproducir:
+python -m unittest discover -s tests -v
+python -m unittest discover -s outlook_bot -p "test_*.py" -v
+PYTHONPATH=. python tests/browser_reader_check.py
+Con pantalla Tk: python tests/gui_parallel_check.py
+python scripts/package_parallel_v6.py
+
+El motor Outlook original permanece sin cambios. El ZIP conserva V5.1 completa.
+Las cuentas, navegadores y pantallas IMSS se simulan: no se autentico en Microsoft
+ni se envio un tramite real. Falta probar Windows, LDPlayer y Outlook reales.

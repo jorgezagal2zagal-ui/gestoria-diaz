@@ -20,7 +20,7 @@ FIELDS = (
     "resultado",
     "motivo",
 )
-STAGES = {"outlook", "consulta", "codigo", "validando", "tramite", "terminado"}
+STAGES = {"emuladores", "outlook", "consulta", "codigo", "validando", "tramite", "terminado"}
 OUTCOMES = {
     "en_curso",
     "completada",
