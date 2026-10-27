@@ -1,4 +1,8 @@
-GESTORIA DIAZ V5 - DOS BOTS EN UN MISMO PANEL
+GESTORIA DIAZ V5.1 - CORRECCION DEL LECTOR DE CODIGOS
+
+Esta copia conserva el panel y el arranque de la V5. El lector reconoce mas
+variantes del encabezado de Outlook y registra ambas pestanas antes de pedir
+el codigo. Evita abrir constancias y mensajes antiguos durante la espera.
 
 1. Cierra la version anterior. Extrae TODO el ZIP en una carpeta nueva.
 2. Abre ABRIR_BOT.bat.
@@ -27,6 +31,6 @@ tres intentos. Las pantallas desconocidas se detienen para revision.
 Los estados se muestran en cada seccion y en el progreso superior.
 Los historiales estan en Registro; la cola de solicitudes, en Lotes.
 
-El ZIP conserva la V4 completa en respaldos, con las versiones anteriores.
+El ZIP conserva la V5 completa en respaldos, con las versiones anteriores.
 El motor original de Outlook se conserva sin cambios.
 Se verifico con servicios simulados; falta probar Windows y LDPlayer reales.

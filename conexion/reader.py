@@ -9,11 +9,98 @@ from urllib.parse import urlsplit, unquote
 import unicodedata
 
 ROW = '[role="option"], [role="row"], [data-app-section="MailList"] [data-item-id], [data-app-section="MailList"] [data-convid], [data-testid="message-list"] [data-message-id]'
-PANE = '[data-app-section*="ReadPane"], [data-app-section*="ReadingPane"], [class*="ReadingPane"], [class*="ReadPane"], [role="article"]'
+PANE = '[data-app-section*="ReadPane"], [data-app-section*="ReadingPane"], [data-app-section="MailReadCompose"], #ReadingPaneContainerId, [aria-label="Reading pane"], [aria-label="Panel de lectura"], [class*="ReadingPane"], [class*="ReadPane"], [role="article"]'
 HEADER = '[data-testid="message-header"], [data-app-section="MessageHeader"], [class*="MessageHeader"], [class*="messageHeader"], header'
-IDENTITY = ("data-item-id", "data-message-id", "data-convid", "data-conversation-id")
+IDENTITY = (
+    "data-item-id",
+    "data-message-id",
+    "data-itemid",
+    "data-messageid",
+    "data-convid",
+    "data-conversation-id",
+)
 DATE = ("datetime", "data-received-date", "data-receiveddatetime")
-DATE_SELECTOR = "time[datetime], [data-received-date], [data-receiveddatetime]"
+DATE_SELECTOR = "time[datetime], [data-received-date], [data-receiveddatetime], [title], [aria-label]"
+
+# Read native Outlook chrome only. Message HTML, including iframe content, is
+# excluded so a sender/date written inside a message cannot authenticate itself.
+NATIVE_HEADER = """
+const pane=arguments[0];
+const body=pane.querySelector('#UniqueMessageBody')||pane.querySelector('[aria-label="Message body"], [aria-label="Cuerpo del mensaje"]')||pane.querySelector('[role="document"]')||pane.querySelector('.allowTextSelection')||pane.querySelector('iframe');
+if(!body)return null;
+const outside=n=>n.getClientRects().length&&getComputedStyle(n).visibility!=='hidden'&&n!==body&&!body.contains(n)&&!n.contains(body)&&
+    Boolean(n.compareDocumentPosition(body)&Node.DOCUMENT_POSITION_FOLLOWING);
+const nodes=Array.from(pane.querySelectorAll('[email],[data-email-address],[title],[aria-label],time,span,a[href^="mailto:"]')).filter(outside);
+const addresses=[];const dates=[];
+for(const n of nodes){
+  const text=(n.textContent||'').trim();if(text.length<100&&/\\d{4}/.test(text))dates.push(text);
+  if(n.matches('a[href^="mailto:"]'))addresses.push(n.getAttribute('href').slice(7).split('?')[0]);
+  for(const a of ['email','data-email-address','title']){
+    const v=(n.getAttribute(a)||'').trim();
+    if(/^[^\\s<>@]+@[^\\s<>@]+\\.[^\\s<>@]+$/.test(v))addresses.push(v);
+  }
+  for(const a of ['datetime','data-received-date','data-receiveddatetime','title','aria-label']){
+    const v=n.getAttribute(a);if(v&&v.length<200)dates.push(v);
+  }
+}
+return {recognized:true,addresses:addresses.slice(0,8),dates:dates.slice(0,60)};
+"""
+
+
+def display_date(value):
+    """Native Outlook calendar dates without ISO attributes; never message text."""
+    if not isinstance(value, str):
+        return None
+    value = normalized(value).strip().replace("\u202f", " ")
+    value = re.sub(
+        r"^(?:mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?|lunes|martes|miercoles|jueves|viernes|sabado|domingo)[,.]?\s+",
+        "",
+        value,
+    )
+    # A full calendar date is required; "17:10", "Sun 23:08" and relative
+    # labels cannot establish which day an old message was received.
+    formats = (
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%m/%d/%Y %I:%M %p",
+        "%m/%d/%Y %H:%M",
+        "%B %d, %Y %I:%M %p",
+        "%b %d, %Y %I:%M %p",
+    )
+    if re.match(r"(?:1[3-9]|2[0-9]|3[01])/", value):
+        formats += ("%d/%m/%Y %H:%M", "%d/%m/%Y %I:%M %p")
+    spanish = re.fullmatch(
+        r"(\d{1,2}) de ([a-z]+) de (\d{4})[, ]+(\d{1,2}):(\d{2})", value
+    )
+    if spanish:
+        day, month, year, hour, minute = spanish.groups()
+        months = (
+            "enero",
+            "febrero",
+            "marzo",
+            "abril",
+            "mayo",
+            "junio",
+            "julio",
+            "agosto",
+            "septiembre",
+            "octubre",
+            "noviembre",
+            "diciembre",
+        )
+        try:
+            return datetime(
+                int(year), months.index(month) + 1, int(day), int(hour), int(minute)
+            ).timestamp(), 60
+        except ValueError:
+            return None
+    for fmt in formats:
+        try:
+            date = datetime.strptime(value, fmt)
+            return date.timestamp(), 1 if "%S" in fmt else 60
+        except ValueError:
+            pass
+    return None
 
 
 def normalized(text):
@@ -115,6 +202,8 @@ class OutlookReader:
         self.transient_errors = 0
         self.initial_view = None
         self.require_received_date = False
+        self.baselined_views = set()
+        self.date_precision = {}
 
     def inbox_tabs(self):
         tabs = {}
@@ -182,7 +271,48 @@ class OutlookReader:
         self.seen = {marker for marker, _, _ in rows}
         self.baseline_ids = {identity(row) for _, row, _ in rows}
         self.initial_view = self.selected_view(self.inbox_tabs())
+        self.baselined_views = {self.initial_view} if self.initial_view else set()
+        tabs = self.inbox_tabs()
+        if self.initial_view and tabs:
+            try:
+                for name, tab in tabs.items():
+                    if name == self.initial_view or self.cancelled():
+                        continue
+                    tab.click()
+                    deadline = time.monotonic() + 2
+                    previous = None
+                    while not self.cancelled():
+                        rows = self.rows()
+                        markers = {marker for marker, _, _ in rows}
+                        if self.selected_view(self.inbox_tabs()) == name:
+                            self.seen.update(markers)
+                            self.baseline_ids.update(
+                                identity(row) for _, row, _ in rows
+                            )
+                            if markers == previous:
+                                self.baselined_views.add(name)
+                                break
+                            previous = markers
+                        if time.monotonic() >= deadline:
+                            raise RuntimeError(
+                                "No se pudo confirmar la referencia de ambas pestañas de Outlook."
+                            )
+                        time.sleep(0.2)
+            finally:
+                tabs[self.initial_view].click()
         self.diagnostic("Bandeja reconocida; referencia anterior al código guardada.")
+
+    def native_header(self, pane):
+        execute = getattr(self.driver, "execute_script", None)
+        if execute:
+            result = execute(NATIVE_HEADER, pane)
+            if (
+                isinstance(result, dict)
+                and isinstance(result.get("addresses"), list)
+                and isinstance(result.get("dates"), list)
+            ):
+                return result
+        return {"recognized": False, "addresses": [], "dates": []}
 
     def dates(self, element, children=True):
         nodes = [element] + (
@@ -193,6 +323,13 @@ class OutlookReader:
         values = [
             timestamp(node.get_attribute(attr)) for node in nodes for attr in DATE
         ]
+        for node in nodes:
+            for attr in ("title", "aria-label"):
+                parsed = display_date(node.get_attribute(attr))
+                if parsed:
+                    value, precision = parsed
+                    values.append(value)
+                    self.date_precision[value] = precision
         return [value for value in values if value is not None]
 
     def sender_address(self, pane):
@@ -238,7 +375,24 @@ class OutlookReader:
             self.diagnostic("Esperando que el panel muestre el mensaje seleccionado.")
             return None
         headers = visible(pane.find_elements("css selector", HEADER))
-        dates = self.dates(headers[0]) if headers else self.dates(pane, children=False)
+        metadata = self.native_header(pane)
+        dates = (
+            []
+            if metadata.get("recognized")
+            else self.dates(headers[0])
+            if headers
+            else self.dates(pane, children=False)
+        )
+        if not dates:
+            for raw in metadata["dates"]:
+                if not isinstance(raw, str):
+                    continue
+                stamp = timestamp(raw)
+                parsed = (stamp, 1) if stamp is not None else display_date(raw)
+                if parsed:
+                    value, precision = parsed
+                    dates.append(value)
+                    self.date_precision[value] = precision
         if not dates:
             dates = self.dates(row)
         received = max(dates) if dates else None
@@ -248,7 +402,15 @@ class OutlookReader:
             )
             return None
         if received is not None and (
-            received < started or received > time.time() + 120
+            (
+                received < started
+                and not (
+                    row_id not in self.baseline_ids
+                    and self.date_precision.get(received) == 60
+                    and received + 60 > started
+                )
+            )
+            or received > time.time() + 120
         ):
             self.diagnostic(
                 "Mensaje anterior a la solicitud o fecha no válida; esperando otro."
@@ -261,7 +423,13 @@ class OutlookReader:
                 "Outlook no expone aún la fecha o identidad del mensaje abierto."
             )
             return None
-        addresses = self.sender_address(pane)
+        addresses = set() if metadata.get("recognized") else self.sender_address(pane)
+        if not addresses:
+            addresses = {
+                parseaddr(unquote(v))[1].casefold()
+                for v in metadata["addresses"][:1]
+                if isinstance(v, str)
+            }
         body = self.body(pane)
         if self.automatic:
             official = any(
@@ -278,7 +446,11 @@ class OutlookReader:
                 self.expected_curp and self.expected_curp in normalized(body)
             )
             if not official and not (branded and matches_curp):
-                self.diagnostic("Esperando el mensaje nuevo de validación del IMSS.")
+                self.diagnostic(
+                    "No se pudo comprobar el remitente de la cabecera de Outlook."
+                    if not addresses
+                    else "Esperando el mensaje nuevo de validación del IMSS."
+                )
                 return None
             # If a CURP is present, it must be the active request's CURP.
             mentioned = set(
@@ -310,7 +482,10 @@ class OutlookReader:
             tabs = self.inbox_tabs()
             selected = self.selected_view(tabs)
             self.require_received_date = bool(
-                self.initial_view and selected and selected != self.initial_view
+                self.initial_view
+                and selected
+                and selected != self.initial_view
+                and selected not in self.baselined_views
             )
             for marker, row, preview in self.rows():
                 if self.cancelled():
@@ -318,7 +493,7 @@ class OutlookReader:
                 candidate = (
                     bool(
                         re.search(
-                            r"\bimss\b|instituto mexicano|codigo|verification code|security code",
+                            r"codigo|verification code|security code",
                             normalized(preview),
                         )
                     )
@@ -327,6 +502,10 @@ class OutlookReader:
                 )
                 if marker in self.seen or not candidate:
                     continue
+                if identity(row) in self.baseline_ids:
+                    dates = self.dates(row)
+                    if not dates or max(dates) < started:
+                        continue
                 # Retain candidates with a partially loaded body for the next poll.
                 row.click()
                 end = time.monotonic() + 1.5

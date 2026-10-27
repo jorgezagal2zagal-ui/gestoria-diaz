@@ -1,0 +1,28 @@
+V5.1 - LECTURA DEL CODIGO Y ENTREGA A IMSS
+
+184 pruebas de IMSS, conexion, cola, arranque y lector: aprobadas.
+31 pruebas del motor original de Outlook: aprobadas.
+32 escenarios de navegador Chromium local con Outlook simulado: aprobados.
+
+Los escenarios adicionales reproducen variantes de la interfaz mostrada en
+el video: remitente en titulo del encabezado, fecha de calendario sin atributo
+ISO y panel de lectura sin identificador compartido con la fila del mensaje.
+Se verifica la referencia de Focused/Other antes de pedir el codigo.
+Los mensajes anteriores y constancias no se abren durante la espera del codigo.
+Los atributos de remitente y fecha dentro del cuerpo no autentican al mensaje.
+
+Dos escenarios conectan el lector real sobre navegador simulado con el puente
+local y el coordinador IMSS: el correo llega despues de la solicitud, se abre,
+el lector devuelve 012345 y el metodo IMSS recibe esos seis digitos asociados
+al correo, CURP e instancia correctos. IMSS/LDPlayer se simulan en esa prueba.
+No se hace un tramite ni se inicia sesion en Microsoft realmente.
+
+Reproducir:
+python -m unittest discover -s tests -v
+python -m unittest discover -s outlook_bot -p "test_*.py" -v
+PYTHONPATH=. python tests/browser_reader_check.py
+python scripts/package_reader_v51.py
+
+La V5 completa se conserva en el ZIP y el motor Outlook original no cambia.
+Se verifica el paquete extraido y sus hashes. Falta probar esta correccion en
+Windows con el DOM real de tu bandeja de Outlook y tu instancia LDPlayer.

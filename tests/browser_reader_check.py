@@ -4,8 +4,12 @@ Use the test venv with playwright and an installed Chromium; no Microsoft connec
 
 from datetime import datetime, timezone
 from pathlib import Path
+import queue
+import tempfile
+import threading
 import time
 import unittest
+from unittest.mock import Mock, patch
 from playwright.sync_api import sync_playwright
 from conexion.reader import OutlookReader, PANE
 
@@ -53,7 +57,25 @@ class BrowserAdapter:
         return self.page.url
 
     def find_elements(self, by, selector):
+        callback = getattr(self, "before_read", None)
+        if callback:
+            callback()
         return [Element(n) for n in self.context.query_selector_all(selector)]
+
+    def set_page_load_timeout(self, seconds):
+        self.page.set_default_navigation_timeout(seconds * 1000)
+
+    def set_script_timeout(self, seconds):
+        pass
+
+    def quit(self):
+        self.closed = True
+
+    def execute_script(self, script, *args):
+        return self.page.evaluate(
+            "(args)=>{return (function(){" + script + "}).apply(null,args)}",
+            [a.node if isinstance(a, Element) else a for a in args],
+        )
 
 
 class BrowserReaderTests(unittest.TestCase):
@@ -135,14 +157,208 @@ class BrowserReaderTests(unittest.TestCase):
         self.assertIsNone(self.reader.scan(self.started))
         self.assertEqual(self.reader.scan(self.started), "870621")
 
-    def test_undated_mail_in_other_tab_is_not_mistaken_for_new_arrival(self):
+    def test_undated_new_mail_in_baselined_other_tab_can_pass_with_matching_ids(self):
         self.add_tabs()
         self.add(offset=None)
         self.page.locator("[data-row=new]").evaluate(
             "e=>{e.dataset.view='Other';e.style.display='none'}"
         )
         self.assertIsNone(self.reader.scan(self.started))
+        self.assertEqual(self.reader.scan(self.started), "870621")
+
+    def test_preexisting_undated_other_tab_mail_is_not_mistaken_for_new_arrival(self):
+        self.add_tabs()
+        self.add(offset=None)
+        self.page.locator("[data-row=new]").evaluate(
+            "e=>{e.dataset.view='Other';e.style.display='none'}"
+        )
+        self.reader.baseline()
         self.assertIsNone(self.reader.scan(self.started))
+        self.assertIsNone(self.reader.scan(self.started))
+
+    def native_layout(self, offset=0, body_extra=""):
+        sender = self.reader.sender or "verifica-noreplay@imss.gob.mx"
+        date = datetime.fromtimestamp(self.started + offset).strftime(
+            "%a %Y-%m-%d %H:%M"
+        )
+        # Native tooltip/header variant seen in current Outlook: no email attr,
+        # no ISO datetime and no shared ID on the reading pane.
+        self.page.evaluate(
+            """({sender,date,extra})=>{
+          const pane=document.querySelector('[role=article]');pane.remove();
+          const native=document.createElement('div');native.dataset.appSection='MailReadCompose';
+          document.body.append(native);
+          addMessage('new','Código de validación',sender,'012345',null);
+          const row=document.querySelector('[data-row=new]');
+          row.onclick=()=>{
+            native.innerHTML='';
+            const subject=document.createElement('h2');subject.textContent='Código de validación';native.append(subject);
+            const address=document.createElement('span');address.title=sender;address.textContent=sender;native.append(address);
+            const t=document.createElement('span');t.title=date;t.textContent=date;native.append(t);
+            const body=document.createElement('div');body.id='UniqueMessageBody';
+            body.innerHTML='<p>Estimado usuario</p><p>Tu código de verificación es: <b>012345</b></p>'+extra;
+            native.append(body);
+          };
+        }""",
+            {"sender": sender, "date": date, "extra": body_extra},
+        )
+
+    def test_native_tooltip_sender_and_calendar_date_deliver_code_without_shared_id(
+        self,
+    ):
+        self.native_layout()
+        self.assertEqual(self.reader.scan(self.started), "012345")
+
+    def test_old_native_tooltip_date_and_body_forgery_cannot_deliver_code(self):
+        self.native_layout(
+            offset=-86400,
+            body_extra='<span title="2099-01-01 17:10" email="avisos@imss.gob.mx">test</span>',
+        )
+        self.assertIsNone(self.reader.scan(self.started))
+
+    def test_message_body_cannot_spoof_sender_when_native_header_is_unrecognized(self):
+        self.native_layout(
+            body_extra='<header><span email="avisos@imss.gob.mx">test</span></header>'
+        )
+        self.page.locator("[data-row=new]").click()
+        self.page.locator(
+            "[data-app-section=MailReadCompose]>span[title]"
+        ).first.evaluate(
+            "e=>{e.title='other@provider.test';e.textContent='other@provider.test'}"
+        )
+        row = next(
+            r
+            for _, r, _ in self.reader.rows()
+            if r.get_attribute("data-item-id") == "new"
+        )
+        pane = self.driver.find_elements("css selector", PANE)[0]
+        self.assertIsNone(self.reader.inspect(row, pane, self.started))
+
+    def test_old_imss_request_and_attachment_messages_are_not_opened_during_code_wait(
+        self,
+    ):
+        self.page.evaluate("""()=>{
+          addMessage('request','IMSS: Solicitud de Constancia','avisos@imss.gob.mx','',null);
+          addMessage('document','IMSS: Constancia de semanas cotizadas','avisos@imss.gob.mx','',null);
+          for(const r of document.querySelectorAll('[role=option]'))r.onclick=()=>{throw Error('Unrelated old mail opened')};
+        }""")
+        self.assertIsNone(self.reader.scan(self.started))
+
+    def test_native_message_code_crosses_real_bridge_and_reaches_matching_imss_request(
+        self,
+    ):
+        import gestoria_5_instancias as imss
+        import outlook_conectado as out
+        from conexion.bridge import Bridge
+        from conexion.history import RequestHistory
+        from conexion.imss_link import ImssConnection
+        from types import SimpleNamespace
+
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge = Bridge(tmp)
+            email = "synthetic@example.test"
+            bridge.publish([email], True)
+            app = imss.App.__new__(imss.App)
+            app.root = Mock()
+            app.root.after.side_effect = lambda delay, cb: cb()
+            app.emit = Mock()
+            app.events = queue.Queue()
+            app.usados_sesion = set()
+            app.pendiente = None
+            app.resultado_tramite = False
+            app.btn_consulta = Mock()
+            app.btn_codigo = Mock()
+            app.selector_cantidad = Mock()
+            app.codigo = Mock()
+            c = ImssConnection.__new__(ImssConnection)
+            c.app = app
+            c.bridge = bridge
+            c.history = RequestHistory(tmp)
+            c.cancel = threading.Event()
+            c.skip = threading.Event()
+            c.active = True
+            c.job = None
+            c.rejected = False
+            c.reset_ready = False
+
+            def consult(path, person, address, instance, procedure):
+                self.assertEqual(bridge.response(c.job)["status"], "ready")
+                app.pendiente = (path, "1", instance, person, address, procedure)
+
+            app._consulta = Mock(side_effect=consult)
+
+            def code(value, *pending):
+                self.assertEqual(value, "012345")
+                self.assertEqual(
+                    pending[2:5], ("INSTANCE", "AAAA900101HDFBCD00", email)
+                )
+                app.pendiente = None
+                app.resultado_tramite = True
+
+            app._codigo = Mock(side_effect=code)
+            server = out.OutlookWorker()
+            server.bridge = bridge
+            server.accounts = [SimpleNamespace(address=email, password="synthetic")]
+            server.shutdown = threading.Event()
+            server.job_cancel = threading.Event()
+            server.accepting = True
+            server._post = lambda cb: cb()
+            server._record_result = Mock()
+            server._account_status = Mock()
+            server.manage_buttons = []
+            server.start_button = Mock()
+            server.skip_button = Mock()
+            server.stop_button = Mock()
+            server.status = Mock()
+            delivered = [False]
+
+            def deliver_mail():
+                if (
+                    c.job
+                    and not delivered[0]
+                    and (bridge.job(c.job) / "started.json").exists()
+                ):
+                    delivered[0] = True
+                    self.native_layout()
+
+            self.driver.before_read = deliver_mail
+            special = Mock()
+            special.handle.return_value = None
+            with (
+                patch.object(out, "try_account", return_value=self.driver),
+                patch.object(out, "SpecialPages", return_value=special),
+                patch("automation.available_browsers", return_value=["edge"]),
+                patch.object(imss, "correos_usados", return_value=set()),
+            ):
+                thread = threading.Thread(
+                    target=c.run,
+                    args=(
+                        "console",
+                        "AAAA900101HDFBCD00",
+                        "INSTANCE",
+                        "procedure",
+                        self.reader.sender,
+                        self.reader.subject,
+                    ),
+                    daemon=True,
+                )
+                thread.start()
+                deadline = time.monotonic() + 3
+                while not bridge.pending() and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                try:
+                    requests = bridge.pending()
+                    self.assertEqual(len(requests), 1)
+                    server.process(requests[0])
+                    thread.join(3)
+                    self.assertFalse(thread.is_alive())
+                    self.assertEqual(c.last_result.status, "completada")
+                    app._codigo.assert_called_once()
+                    self.assertTrue(self.driver.closed)
+                finally:
+                    c.cancel.set()
+                    server.shutdown.set()
+                    thread.join(3)
 
     def test_new_code_from_real_dom(self):
         self.add()
