@@ -21,6 +21,10 @@ import unicodedata
 from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 from html import unescape
+try:
+    from conexion.imss_link import ImssConnection
+except ImportError:
+    ImssConnection = None
 
 DEFAULT = r'D:\LDPlayer\LDPlayer14\ldconsole.exe'
 PACKAGE = 'st.android.imsspublico'
@@ -156,6 +160,35 @@ def celular(console, idx):
     """Resolución vertical de celular. Solo con la instancia APAGADA."""
     run(console, 'modify', '--index', str(idx), '--resolution', '720,1280,320',
         '--cpu', '2', '--memory', '3072')
+
+
+def esperar_instancias(console, condicion, timeout=30):
+    """Avanzar en cuanto LDPlayer confirme el estado; espera máxima limitada."""
+    fin = time.monotonic() + timeout
+    while True:
+        instancias = listar(console)
+        if instancias and condicion(instancias):
+            return instancias
+        if time.monotonic() >= fin:
+            return instancias
+        time.sleep(1)
+
+
+def panel_desplazable(ventana):
+    lienzo = tk.Canvas(ventana, bg=NEGRO, highlightthickness=0)
+    barra = ttk.Scrollbar(ventana, orient='vertical', command=lienzo.yview)
+    lienzo.configure(yscrollcommand=barra.set)
+    barra.pack(side='right', fill='y')
+    lienzo.pack(side='left', fill='both', expand=True)
+    contenido = tk.Frame(lienzo, bg=NEGRO)
+    item = lienzo.create_window((0, 0), window=contenido, anchor='nw')
+    contenido.bind('<Configure>', lambda event: lienzo.configure(scrollregion=lienzo.bbox('all')))
+    lienzo.bind('<Configure>', lambda event: lienzo.itemconfigure(item, width=event.width))
+    def rueda(event):
+        if not isinstance(event.widget, (tk.Text, tk.Listbox, ttk.Combobox)):
+            lienzo.yview_scroll(-int(event.delta / 120), 'units')
+    ventana.bind('<MouseWheel>', rueda)
+    return contenido
 
 
 def es_tablet(console, idx):
@@ -486,8 +519,21 @@ def error_codigo_rechazado(nodos):
                for texto in (n.get('valor', ''), n.get('descripcion', ''), n.get('texto', '')))
 
 
+def tramite_confirmado(texto):
+    texto = texto_normalizado(texto)
+    if re.search(r'\b(?:error|fallo|fallido|fallida)\b|\bno (?:se|ha|fue|pudo)\b', texto):
+        return False
+    return bool(re.search(r'(?:constancia|documento|informacion solicitada).{0,180}(?:enviado|enviada|enviamos|envio).{0,120}correo', texto)
+                or re.search(r'(?:enviamos|se envio|se ha enviado).{0,120}(?:constancia|documento).{0,120}correo', texto))
+
+
 def todo_texto(nodos):
     return ' | '.join(n['texto'] for n in nodos if n['texto']).lower()
+
+
+def conexion_cancelada(app):
+    connection = app.__dict__.get('conexion')
+    return bool(connection and connection.active and connection.cancel.is_set())
 
 
 def buscar(nodos, rid):
@@ -590,11 +636,17 @@ class App:
         self.bloqueada = {}       # nombre -> último estado de bloqueo visto
         self.sesion = {}          # nombre -> (índice, pid): identifica la instancia REAL
         self.ultimo_abrir = {}    # nombre -> cuándo se abrió IMSS por última vez
+        root = panel_desplazable(root)
 
         tk.Label(root, text='GESTORÍA DÍAZ', bg=NEGRO, fg=DORADO,
-                 font=('Segoe UI', 26, 'bold')).pack(pady=(18, 2))
+                 font=('Segoe UI', 24, 'bold')).pack(pady=(18, 2))
         tk.Label(root, text='PREPARADOR DE 1 A 5 MULTIINSTANCIAS · IMSS DIGITAL',
-                 bg=NEGRO, fg='white', font=('Segoe UI', 10, 'bold')).pack(pady=(0, 12))
+                 bg=NEGRO, fg=PLATA, font=('Segoe UI', 10, 'bold')).pack(pady=(0, 16))
+        self.conexion = ImssConnection(self) if ImssConnection else None
+        if self.conexion:
+            self.conexion.controls(root)
+        tk.Label(root, text='1 · INSTANCIAS Y PREPARACIÓN', bg=NEGRO, fg=DORADO,
+                 font=('Segoe UI', 11, 'bold'), anchor='w').pack(fill='x', padx=24, pady=(12, 4))
 
         fr = tk.Frame(root, bg=PANEL, padx=12, pady=10)
         fr.pack(fill='x', padx=24)
@@ -643,7 +695,7 @@ class App:
         self.aviso.pack(pady=(0, 6))
 
         bf = tk.Frame(root, bg=NEGRO)
-        bf.pack()
+        bf.pack(fill='x', padx=24)
         self.btn = tk.Button(bf, text='▶  PREPARAR / ENCENDER', command=self.start,
                              bg=DORADO, fg='#111', font=('Segoe UI', 12, 'bold'),
                              padx=18, pady=10, relief='flat')
@@ -653,16 +705,18 @@ class App:
                                   padx=18, pady=10, relief='flat')
         self.btn_imss.pack(side='left', padx=6)
         self.auto_var = tk.BooleanVar(value=True)
-        tk.Checkbutton(bf, text='Reponer automáticamente si borro una instancia', variable=self.auto_var,
+        auto_frame = tk.Frame(root, bg=NEGRO)
+        auto_frame.pack(fill='x', padx=24, pady=(8, 0))
+        tk.Checkbutton(auto_frame, text='Reponer automáticamente si borro una instancia', variable=self.auto_var,
                        command=lambda: setattr(self, 'auto_on', self.auto_var.get()),
                        bg=NEGRO, fg='white', selectcolor=PANEL, activebackground=NEGRO,
-                       activeforeground=DORADO).pack(side='left', padx=10)
+                       activeforeground=DORADO).pack(anchor='w')
 
         # ---- consulta IMSS
         cf = tk.Frame(root, bg=PANEL, padx=12, pady=10, highlightbackground=DORADO,
                       highlightthickness=1)
         cf.pack(fill='x', padx=24, pady=(14, 0))
-        tk.Label(cf, text='CONSULTA IMSS DIGITAL', bg=PANEL, fg=DORADO,
+        tk.Label(cf, text='2 · SOLICITUD IMSS DIGITAL', bg=PANEL, fg=DORADO,
                  font=('Segoe UI', 11, 'bold')).grid(row=0, column=0, columnspan=4, sticky='w')
         tk.Label(cf, text='CURP del cliente', bg=PANEL, fg='white').grid(row=1, column=0, sticky='w', pady=5)
         self.curp = tk.StringVar()
@@ -699,6 +753,8 @@ class App:
         self.correos = []
         self.pendiente = None        # (path, idx, nombre, curp, correo, tramite)
 
+        tk.Label(root, text='3 · REGISTRO DE ACTIVIDAD', bg=NEGRO, fg=DORADO,
+                 font=('Segoe UI', 11, 'bold'), anchor='w').pack(fill='x', padx=24, pady=(16, 0))
         self.log = tk.Text(root, bg='#1d1d24', fg='#eeeeee', font=('Consolas', 9),
                            state='disabled', relief='flat')
         self.log.pack(fill='both', expand=True, padx=24, pady=(12, 18))
@@ -811,20 +867,21 @@ class App:
                 if inst[plantilla]['running']:
                     self.emit('La plantilla está encendida; la apago para poder copiarla...')
                     run(path, 'quit', '--name', plantilla)
-                    time.sleep(8)
+                    detenido = esperar_instancias(path, lambda datos: plantilla in datos and not datos[plantilla]['running'])
+                    if not detenido or plantilla not in detenido or detenido[plantilla]['running']:
+                        self.emit('La plantilla sigue encendida; no la copiaré mientras esté en uso.')
+                        return
                 for n in faltan:
                     for intento in (1, 2):
                         self.estado(n, 'Copiando plantilla...', AMARILLO)
                         self.emit(f'➕ Creando {n} desde {plantilla} (intento {intento})')
                         run(path, 'copy', '--name', n, '--from', inst[plantilla]['index'], timeout=1800)
-                        time.sleep(3)
-                        if n in listar(path):
+                        if n in esperar_instancias(path, lambda datos: n in datos, timeout=15):
                             self.emit(f'   {n} creada')
                             break
                     else:
                         self.estado(n, 'No se pudo crear', ROJO)
                         self.emit(f'ERROR: {n} no se pudo crear')
-                time.sleep(15)        # dejar que LDPlayer termine de guardar las copias
                 inst = reparar(path, self.emit, nombres)
 
             # 2) encender las apagadas (una por una, después de terminar TODAS las copias)
@@ -834,16 +891,16 @@ class App:
                     self.emit(f'▶ Encendiendo {n} (modo celular 720x1280)')
                     celular(path, inst[n]['index'])
                     run(path, 'launch', '--index', inst[n]['index'])
-                    time.sleep(15)
+                    esperar_instancias(path, lambda datos: n in datos and datos[n]['running'], timeout=12)
             # 3) revisar: reparar nombres perdidos y reintentar las que no prendieron
-            time.sleep(20)
-            inst = listar(path)
+            inst = esperar_instancias(path, lambda datos: all(
+                n in datos and datos[n]['running'] and datos[n]['android'] for n in nombres), timeout=90)
             for n in nombres:
                 if n in inst and not inst[n]['running']:
                     self.emit(f'↻ {n} no prendió, lo intento otra vez')
                     celular(path, inst[n]['index'])
                     run(path, 'launch', '--index', inst[n]['index'])
-                    time.sleep(15)
+                    esperar_instancias(path, lambda datos: n in datos and datos[n]['running'], timeout=12)
             self.events.put(('aviso', '🔑 Android se desbloquea con el PIN configurado y después se abre IMSS Digital.'))
             self.emit('Preparación terminada. El monitor comprobará el PIN y abrirá IMSS Digital.')
         except Exception as exc:
@@ -978,6 +1035,10 @@ class App:
         if not re.fullmatch(r'[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d', curp):
             messagebox.showerror('Gestoría Díaz', 'La CURP no tiene un formato válido (18 caracteres).')
             return
+        connection = self.__dict__.get('conexion')
+        if connection and (connection.active or connection.auto.get()):
+            connection.start(path, curp, self.inst_sel.get(), self.tramite.get())
+            return
         libres = self.disponibles()
         if not libres:
             messagebox.showerror('Gestoría Díaz', 'No hay correos disponibles. Carga un TXT con un correo por línea.')
@@ -1002,6 +1063,8 @@ class App:
             abrir_app(path, nombre, idx)
             nodos = []
             for _ in range(12):
+                if conexion_cancelada(self):
+                    return
                 time.sleep(2)
                 nodos = pantalla(path, idx)
                 txt = todo_texto(nodos)
@@ -1042,6 +1105,8 @@ class App:
             pin_enviado = False
             aviso_pin_manual = False
             for _ in range(30):
+                if conexion_cancelada(self):
+                    return
                 time.sleep(2)
                 nodos = pantalla(path, idx)
                 txt = todo_texto([n for n in nodos if n.get('visible', True) and n.get('area', 0) > 0])
@@ -1093,6 +1158,10 @@ class App:
             self.root.after(0, lambda: self.btn_consulta.configure(state='normal'))
 
     def enviar_codigo(self):
+        connection = self.__dict__.get('conexion')
+        if connection and connection.active:
+            self.emit('El lector automático está esperando el código. Usa Detener solicitud para volver al modo manual.')
+            return
         codigo = re.sub(r'\D', '', self.codigo.get())
         if len(codigo) != 6:
             messagebox.showerror('Gestoría Díaz', 'El código debe tener 6 dígitos.')
@@ -1108,6 +1177,8 @@ class App:
         if not isinstance(codigo, str) or not re.fullmatch(r'[0-9]{6}', codigo):
             return False
         for intento in (1, 2):
+            if conexion_cancelada(self):
+                return False
             nodos = pantalla(path, idx)
             cajas = cajas_codigo_validacion(nodos)
             if not cajas:
@@ -1133,6 +1204,8 @@ class App:
                 adb(path, idx, 'shell', 'input', 'keyevent',
                     *(['KEYCODE_DEL'] * min(len(valor), 6 if cantidad == 1 else 1)))
             for pos, digito in enumerate(codigo):
+                if conexion_cancelada(self):
+                    return False
                 cajas = cajas_codigo_validacion(pantalla(path, idx))
                 if len(cajas) != cantidad:
                     return False
@@ -1153,6 +1226,9 @@ class App:
         """Recuperación específica: aceptar error, cancelar código y usar otro correo."""
         if not error_codigo_rechazado(nodos_error) or getattr(self, 'cambiando_correo', False):
             return False
+        connection = self.__dict__.get('conexion')
+        if connection and connection.active:
+            return connection.code_rejected(path, idx, nombre, curp, correo_fallido, tramite, nodos_error)
 
         def visibles(nodos):
             return [n for n in nodos if n.get('visible', True) and n.get('area', 0) > 0]
@@ -1211,6 +1287,8 @@ class App:
             if not self.meter_codigo(path, idx, codigo):
                 self.emit('✖ No pude escribir los 6 dígitos. Revisa la captura y vuelve a enviarlo.')
                 return
+            if conexion_cancelada(self):
+                return
             nodos = [n for n in pantalla(path, idx) if n.get('visible', True) and n.get('area', 0) > 0]
             botones = [n for n in nodos if n.get('enabled') and any(
                 re.fullmatch(r'(?i)(verificar|validar)', etiqueta.strip())
@@ -1223,11 +1301,17 @@ class App:
             self.emit('➡ Seis dígitos comprobados; pulsé Verificar')
             confirmado = False
             for _ in range(10):
+                if conexion_cancelada(self):
+                    return
                 time.sleep(2)
                 nodos = [n for n in pantalla(path, idx) if n.get('visible', True) and n.get('area', 0) > 0]
                 txt = todo_texto(nodos)
                 if error_codigo_rechazado(nodos):
                     self.cambiar_correo_tras_error(path, idx, nombre, curp, correo, tramite, nodos)
+                    return
+                connection = self.__dict__.get('conexion')
+                if connection and connection.active and connection.is_validation_error(nodos):
+                    connection.code_rejected(path, idx, nombre, curp, correo, tramite, nodos)
                     return
                 if re.search(r'error al validar|c[oó]digo (?:incorrecto|inv[aá]lido|expirado|vencido)', txt):
                     self.emit('✖ Error al validar el código. Usa el correo MÁS RECIENTE y vuelve a enviarlo.')
@@ -1258,6 +1342,9 @@ class App:
                 self.root.after(0, lambda: self.btn_codigo.configure(state='normal'))
 
     def hacer_tramite(self, path, idx, nombre, curp, tramite):
+        self.resultado_tramite = False
+        if conexion_cancelada(self):
+            return
         encontrado = tocar_texto(path, idx, TRAMITES[tramite], 5)
         if not encontrado:                       # p. ej. NSS está dentro del menú > Tramita
             nodos = pantalla(path, idx)
@@ -1273,6 +1360,8 @@ class App:
         # seguir dando CONTINUAR / ENVIAR A TU CORREO hasta que IMSS confirme
         for _ in range(6):
             time.sleep(3)
+            if conexion_cancelada(self):
+                return
             nodos = pantalla(path, idx)
             txt = todo_texto(nodos)
             if txt:
@@ -1286,11 +1375,19 @@ class App:
         time.sleep(2)
         txt = todo_texto(pantalla(path, idx))
         foto = self.foto(path, idx, f'{curp}_{CORTO.get(tramite, "tramite")}.png')
-        self.emit(f'📨 {tramite} terminado para {curp}. IMSS lo manda al correo. Captura: {foto.name}')
+        self.resultado_tramite = tramite_confirmado(txt)
+        if self.resultado_tramite:
+            self.emit(f'📨 {tramite}: IMSS confirmó el envío al correo. Captura: {foto.name}')
+        else:
+            self.emit(f'⚠ No pude confirmar el envío de {tramite}. Revisa la captura: {foto.name}')
         self.emit(f'   Pantalla: {txt[:200]}')
-        self.events.put(('aviso', f'📨 Listo: revisa el correo para descargar {tramite}'))
+        self.events.put(('aviso', f'📨 Revisa el correo de {tramite}' if self.resultado_tramite else 'Revisa la instancia: envío no confirmado por IMSS.'))
 
     def cerrar_sesion(self):
+        connection = self.__dict__.get('conexion')
+        if connection and connection.active:
+            self.emit('Detén la solicitud conectada antes de cerrar la sesión de IMSS.')
+            return
         path = self.ruta()
         if path:
             threading.Thread(target=self._cerrar, args=(path, self.inst_sel.get()), daemon=True).start()

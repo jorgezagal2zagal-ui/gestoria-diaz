@@ -1,0 +1,65 @@
+GESTORIA DIAZ - INSTANCIAS AFINADAS Y CONEXION OUTLOOK / IMSS
+
+ANTES DE EMPEZAR
+Extrae TODO este ZIP en una carpeta fija. Cierra las versiones anteriores.
+Los archivos del Outlook suministrado se conservan identicos; la conexion
+se agrega mediante outlook_conectado.py y la carpeta conexion.
+Se necesitan Windows, Python 3.10 o superior, LDPlayer y los navegadores que
+ya utiliza tu Outlook. No se necesita una cuenta de Azure ni Microsoft Graph.
+
+CONFIGURACION INICIAL
+1. Ejecuta INICIAR_OUTLOOK_CONECTADO.bat.
+2. En su panel habitual importa el TXT correo:contrasena.
+3. Pulsa ACTIVAR CONEXION IMSS. Deja ese panel abierto.
+4. Ejecuta INICIAR_IMSS.bat y prepara tus instancias con PREPARAR / ENCENDER.
+5. En Configurar lector escribe el REMITENTE COMPLETO y una parte del ASUNTO
+   de un correo real del IMSS que contenga el codigo. Esos datos no se han
+   inventado: debes copiarlos de uno de tus mensajes. Guarda la configuracion.
+
+SOLICITUD CONECTADA
+Deja marcada la casilla Outlook -> IMSS -> codigo automatico.
+Escribe la CURP, elige la instancia y el tramite, y pulsa 1. INICIAR.
+
+- Elige un correo importado en Outlook que no este usado en el historial IMSS.
+- Outlook inicia sesion con ese correo. Solo cuando la bandeja esta lista
+  el bot del IMSS empieza su consulta.
+- El lector toma una referencia de la bandeja antes de pedir el codigo.
+  Busca solo mensajes nuevos con el asunto configurado, comprueba el remitente
+  y extrae un unico codigo de 6 digitos del mensaje abierto.
+- El codigo se entrega a la misma solicitud e instancia. Se reutilizan la
+  entrada de seis casillas, el PIN y la aceptacion del cambio de dispositivo.
+- Si IMSS responde Error al validar el codigo, acepta/cancela esa validacion,
+  cierra ese intento de Outlook y ambos pasan al siguiente correo.
+- Como maximo intenta TRES CORREOS por solicitud. Cada correo mantiene los
+  reintentos de navegador del Outlook original. Si no se logra, avisa.
+
+La configuracion de navegadores, omisiones, registros y listas de Outlook se
+conserva. Si Microsoft sigue limitando solicitudes, detiene la conexion.
+Si no quedan correos, se desconecta Outlook o aparece una pantalla desconocida
+que no permite volver al login, se detiene antes de seguir pulsando a ciegas.
+Solo da por completado el tramite cuando IMSS confirma el envio al correo.
+
+El lector espera hasta 3 minutos por codigo. Si Outlook no expone datos suficientes
+para verificar el mensaje abierto, no envia un codigo supuesto. Puedes usar
+Detener solicitud y desmarcar la conexion para continuar por la entrada manual.
+Hay UNA solicitud activa a la vez; no ejecutes varias copias del lector conectado.
+
+El boton Detener solicitud detiene los siguientes pasos. Una accion que ya
+haya sido enviada a IMSS puede seguir procesandose en la instancia.
+Las solicitudes locales se guardan temporalmente en la carpeta privada del
+usuario y se eliminan al terminar. No se envian contrasenas entre los bots.
+
+MEJORAS DEL BOT DE INSTANCIAS
+- Panel desplazable, para alcanzar todos los controles en pantallas pequenas.
+- Barra de conexion y configuracion del lector, con opcion de modo manual.
+- Comprobaciones de estado de LDPlayer sustituyen esperas fijas de 15/20 segundos.
+  No se promete una velocidad concreta: depende de los emuladores y del equipo.
+- Si la plantilla sigue encendida, no intenta copiarla mientras esta en uso.
+- Los resultados no se anuncian como completados si IMSS no confirma el envio.
+
+VALIDACION
+Pruebas automatizadas de secuencia, tres intentos, mensajes viejos, remitente,
+codigos ambiguos, correlacion por correo/instancia y conexion local entre ambos
+trabajadores. Las pruebas usan bandejas y respuestas de IMSS simuladas.
+No se ha validado la lectura contra tu Outlook real ni LDPlayer en Windows:
+prueba primero UNA instancia y una cuenta antes de usar el resto.
