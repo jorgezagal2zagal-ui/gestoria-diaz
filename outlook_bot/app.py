@@ -6,7 +6,7 @@ import os
 import shutil
 import threading
 import queue
-from automation import available_browsers, try_account, close_driver, LoginFailure, SkipRequested
+from automation import available_browsers, try_account, close_driver, LoginFailure, SkipRequested, RateLimited
 from core import parse_accounts, merge_accounts, Account
 
 class App(tk.Tk):
@@ -119,6 +119,7 @@ class App(tk.Tk):
         self.stop_button.configure(state='disabled')
 
     def _run_accounts(self, accounts, browsers):
+        limited = False
         try:
             for account in accounts:
                 if self._stop_event.is_set():
@@ -141,13 +142,22 @@ class App(tk.Tk):
                     self._post(lambda address=address: self._account_status(address, 'Finalizado'))
                 except SkipRequested:
                     self._post(lambda address=address: self._account_status(address, 'Omitido manualmente'))
+                except RateLimited:
+                    limited = True
+                    self._post(lambda address=address: self._account_status(address, 'Microsoft limita solicitudes'))
+                    break
                 except LoginFailure:
                     self._post(lambda address=address: self._account_status(address, 'Omitido: acceso no disponible'))
                 except Exception:
                     self._post(lambda address=address: self._account_status(address, 'Omitido: error de navegador'))
                 finally:
                     close_driver(driver)
-            text = 'Proceso detenido.' if self._stop_event.is_set() else 'Cola terminada. Revisa los estados de las cuentas.'
+            if self._stop_event.is_set():
+                text = 'Proceso detenido.'
+            elif limited:
+                text = 'Microsoft sigue mostrando Too Many Requests. Cola detenida; vuelve a intentar más tarde.'
+            else:
+                text = 'Cola terminada. Revisa los estados de las cuentas.'
             self._post(lambda text=text: self.status.set(text))
         finally:
             self._post(self._finish_run)

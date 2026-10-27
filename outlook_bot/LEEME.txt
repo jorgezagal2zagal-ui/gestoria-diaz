@@ -28,3 +28,13 @@ mensajes de error. La tabla oculta contrasenas salvo que marques Mostrar.
 
 Validacion: pruebas simuladas de recuperacion y prueba real de la interfaz Tk.
 No se han probado cuentas reales de Microsoft ni navegadores Windows aqui.
+
+PANTALLAS RECUPERABLES
+- Too Many Requests: espera60segundos y recarga una vez la misma pagina.
+  La pausa se suma al plazo de ese intento. Si el limite persiste, detiene
+  la cola: no cambia de cuenta o navegador para seguir haciendo solicitudes.
+  Puedes detener la pausa; omitir durante esa pausa tambien detiene la cola.
+- A quick note about your Microsoft account: pulsa OK en el aviso oficial
+  de privacynotice.account.microsoft.com y continua hacia Outlook.
+- Password sign-in isn't available: cierra el intento, abre el navegador
+  alternativo e intenta de nuevo. Si tambien falla, omite el correo.

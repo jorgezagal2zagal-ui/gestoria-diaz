@@ -56,6 +56,7 @@ class RecoveryTests(unittest.TestCase):
 
     def test_unknown_screen_times_out_and_closes_driver(self):
         driver = Mock()
+        driver.current_url = 'https://login.live.com/'
         driver.find_elements.return_value = []
         with patch.object(engine.time, 'sleep'):
             with self.assertRaises(engine.LoginFailure):

@@ -15,6 +15,10 @@ class SkipRequested(Exception):
     pass
 
 
+class RateLimited(LoginFailure):
+    pass
+
+
 def normalized(text):
     return ''.join(c for c in unicodedata.normalize('NFD', text.casefold())
                    if not unicodedata.combining(c))
@@ -24,6 +28,7 @@ def password_unavailable(text):
     text = normalized(text).replace('’', "'")
     return any(message in text for message in (
         'password sign-in is not available', 'password sign in is not available',
+        "password sign-in isn't available", "password sign in isn't available",
         "password isn't available", 'password is not available',
         "can't sign in with a password", 'cannot sign in with a password',
         'no puedes iniciar sesion con contrasena',
@@ -108,6 +113,53 @@ NEXT = 'input#idSIButton9, button[type="submit"], input[type="submit"]'
 OTHER = "//*[self::a or self::button or @role='button'][contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'other ways to sign in') or contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'otras formas de iniciar sesión') or contains(normalize-space(.), 'Opciones de inicio de sesión')]"
 USE_PASSWORD = "//*[text()[normalize-space()='Use your password'] or text()[normalize-space()='Usar tu contraseña'] or text()[normalize-space()='Usar la contraseña']]"
 STAY_NO = "//input[@id='idBtn_Back' or translate(@value, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='no'] | //button[translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='no'] | //*[@role='button' and translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='no']"
+NOTICE_OK = "//button[translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='ok'] | //input[translate(@value, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='ok'] | //*[@role='button' and translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='ok']"
+
+
+class SpecialPages:
+    """Handle the supplied Microsoft screens without retrying a throttle in another browser."""
+    def __init__(self, driver, cancelled, report, cooldown=60, clock=None, sleep=None):
+        self.driver, self.cancelled, self.report = driver, cancelled, report
+        self.cooldown = cooldown
+        self.clock = clock or time.monotonic
+        self.sleep = sleep or time.sleep
+        self.refreshed = False
+        self.notice_clicked = False
+
+    def handle(self):
+        if self.cancelled():
+            raise SkipRequested()
+        body = first_visible(self.driver, 'tag name', 'body')
+        text = ' '.join(normalized(body.text).split()) if body else ''
+        if 'too many requests' in text:
+            if self.refreshed:
+                raise RateLimited('Microsoft sigue limitando solicitudes. Intenta más tarde.')
+            self.report('Microsoft limita solicitudes. Espero 60 segundos antes de recargar una vez.')
+            started = self.clock()
+            end = started + self.cooldown
+            while self.clock() < end:
+                if self.cancelled():
+                    raise RateLimited('Pausa por límite de solicitudes cancelada.')
+                self.sleep(min(.25, max(0, end - self.clock())))
+            if self.cancelled():
+                raise RateLimited('Pausa por límite de solicitudes cancelada.')
+            self.refreshed = True
+            try:
+                self.driver.refresh()
+            except Exception:
+                raise RateLimited('No se pudo recargar la página limitada por Microsoft.') from None
+            return self.clock() - started
+        if password_unavailable(text):
+            raise LoginFailure('Inicio con contraseña no disponible')
+        host = urlsplit(self.driver.current_url).hostname
+        if host == 'privacynotice.account.microsoft.com' and not self.notice_clicked:
+            button = first_visible(self.driver, 'xpath', NOTICE_OK)
+            if button:
+                button.click()
+                self.notice_clicked = True
+                self.report('Aviso de Microsoft: pulsé OK; continuando.')
+                return 0
+        return None
 
 
 def inbox_ready(driver):
@@ -125,15 +177,19 @@ def open_inbox(account, browser, cancelled, report, driver_factory=create_driver
     """One browser attempt; never interact with MFA or CAPTCHA challenges."""
     driver = None
     deadline = time.monotonic() + timeout
+    special = None
 
     def wait(probe, label):
+        nonlocal deadline
         end = min(deadline, time.monotonic() + stage_timeout)
         while time.monotonic() < end:
             if cancelled():
                 raise SkipRequested()
-            body = first_visible(driver, 'tag name', 'body')
-            if body and password_unavailable(body.text):
-                raise LoginFailure('Inicio con contraseña no disponible')
+            paused = special.handle()
+            if paused is not None:
+                deadline += paused
+                end = min(deadline, end + paused)
+                continue
             try:
                 result = probe()
             except Exception as error:
@@ -151,6 +207,7 @@ def open_inbox(account, browser, cancelled, report, driver_factory=create_driver
         if cancelled():
             raise SkipRequested()
         driver = driver_factory(browser)
+        special = SpecialPages(driver, cancelled, report)
         if cancelled():
             raise SkipRequested()
         report('Escribiendo correo')
@@ -228,6 +285,8 @@ def try_account(account, browsers, cancelled, report, attempt=None):
         try:
             return attempt(account, browser, cancelled, report)
         except SkipRequested:
+            raise
+        except RateLimited:
             raise
         except Exception:
             # Do not log Selenium exception strings: they can contain credentials.
