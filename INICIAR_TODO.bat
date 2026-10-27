@@ -6,5 +6,5 @@ if errorlevel 1 (
  exit /b 1
 )
 set SE_TIMEOUT=30
-start "Outlook conectado V2" "%~dp0.venv\Scripts\python.exe" "%~dp0outlook_conectado.py"
-start "Instancias IMSS V2" "%~dp0.venv\Scripts\python.exe" "%~dp0gestoria_5_instancias.py"
+"%~dp0.venv\Scripts\python.exe" "%~dp0panel_unificado.py"
+if errorlevel 1 pause

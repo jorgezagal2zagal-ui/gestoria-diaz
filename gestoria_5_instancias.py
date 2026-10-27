@@ -536,6 +536,12 @@ def conexion_cancelada(app):
     return bool(connection and connection.active and connection.cancel.is_set())
 
 
+def lote_activo(app):
+    connection = app.__dict__.get('conexion')
+    batch = connection.__dict__.get('batch') if connection else None
+    return bool(batch and batch.runner.running)
+
+
 def buscar(nodos, rid):
     for n in nodos:
         if n['rid'].endswith(rid):
@@ -606,7 +612,7 @@ def marcar_usado(curp, correo, instancia, tramite):
 
 # ---------------------------------------------------------------- interfaz
 class App:
-    def __init__(self, root):
+    def __init__(self, root, outlook_factory=None):
         self.root = root
         root.title('GESTORÍA DÍAZ | 1 A 5 MULTIINSTANCIAS')
         root.geometry(f'{min(1000, root.winfo_screenwidth() - 60)}x'
@@ -645,6 +651,18 @@ class App:
         self.conexion = ImssConnection(self) if ImssConnection else None
         if self.conexion:
             self.conexion.controls(root)
+            if outlook_factory:
+                tabs = ttk.Notebook(root)
+                tabs.pack(fill='both',expand=True,padx=12,pady=8)
+                solicitud_parent = tk.Frame(tabs,bg=NEGRO)
+                instancias_parent = tk.Frame(tabs,bg=NEGRO)
+                registro_parent = tk.Frame(tabs,bg=NEGRO)
+                tabs.add(solicitud_parent,text='Solicitud y correo')
+                tabs.add(instancias_parent,text='Instancias')
+                tabs.add(registro_parent,text='Registro')
+                self.outlook = outlook_factory(solicitud_parent,self.conexion)
+                self.tabs_unificados = tabs
+                root = instancias_parent
         tk.Label(root, text='1 · INSTANCIAS Y PREPARACIÓN', bg=NEGRO, fg=DORADO,
                  font=('Segoe UI', 11, 'bold'), anchor='w').pack(fill='x', padx=24, pady=(12, 4))
 
@@ -713,6 +731,8 @@ class App:
                        activeforeground=DORADO).pack(anchor='w')
 
         # ---- consulta IMSS
+        if self.__dict__.get('outlook'):
+            root = solicitud_parent
         cf = tk.Frame(root, bg=PANEL, padx=12, pady=10, highlightbackground=DORADO,
                       highlightthickness=1)
         cf.pack(fill='x', padx=24, pady=(14, 0))
@@ -732,18 +752,18 @@ class App:
         self.tramite = tk.StringVar(value='Constancia de semanas cotizadas')
         ttk.Combobox(cf, textvariable=self.tramite, values=list(TRAMITES), width=44,
                      state='readonly').grid(row=2, column=1, columnspan=2, sticky='w', padx=6)
-        tk.Button(cf, text='📄 Cargar correos (TXT)', command=self.cargar_txt).grid(
-            row=3, column=0, sticky='w', pady=4)
+        boton_correos = tk.Button(cf, text='📄 Cargar correos (TXT)', command=self.cargar_txt)
+        boton_correos.grid(row=3, column=0, sticky='w', pady=4)
         self.info_correos = tk.Label(cf, text='Sin archivo de correos', bg=PANEL, fg=PLATA)
         self.info_correos.grid(row=3, column=1, columnspan=2, sticky='w', padx=6)
         self.btn_consulta = tk.Button(cf, text='🔎 1. INICIAR', command=self.consulta,
                                       bg=DORADO, fg='#111', font=('Segoe UI', 11, 'bold'),
                                       relief='flat', padx=14, pady=5)
         self.btn_consulta.grid(row=3, column=3, pady=4)
-        tk.Label(cf, text='Código del correo', bg=PANEL, fg='white').grid(row=4, column=0, sticky='w', pady=5)
+        tk.Label(cf, text='Código automático' if self.__dict__.get('outlook') else 'Código del correo', bg=PANEL, fg='white').grid(row=4, column=0, sticky='w', pady=5)
         self.codigo = tk.StringVar()
-        tk.Entry(cf, textvariable=self.codigo, width=10, font=('Consolas', 14)).grid(
-            row=4, column=1, sticky='w', padx=6)
+        self.entrada_codigo = tk.Entry(cf, textvariable=self.codigo, width=10, font=('Consolas', 14))
+        self.entrada_codigo.grid(row=4, column=1, sticky='w', padx=6)
         self.btn_codigo = tk.Button(cf, text='✅ 2. ENVIAR CÓDIGO', command=self.enviar_codigo,
                                     bg=VERDE, fg='#111', font=('Segoe UI', 11, 'bold'),
                                     relief='flat', padx=14, pady=5, state='disabled')
@@ -752,7 +772,13 @@ class App:
             row=4, column=2, sticky='e')
         self.correos = []
         self.pendiente = None        # (path, idx, nombre, curp, correo, tramite)
+        if self.__dict__.get('outlook'):
+            boton_correos.grid_remove()
+            self.info_correos.grid_configure(column=0,columnspan=3)
+            self.info_correos.configure(text='El correo elegido arriba se usa en ambos bots.')
 
+        if self.__dict__.get('outlook'):
+            root = registro_parent
         tk.Label(root, text='3 · REGISTRO DE ACTIVIDAD', bg=NEGRO, fg=DORADO,
                  font=('Segoe UI', 11, 'bold'), anchor='w').pack(fill='x', padx=24, pady=(16, 0))
         self.log = tk.Text(root, bg='#1d1d24', fg='#eeeeee', font=('Consolas', 9),
@@ -766,7 +792,7 @@ class App:
     # ---------- utilidades GUI
     def aplicar_cantidad(self, event=None):
         """Actualizar la selección sin apagar ni borrar las instancias sobrantes."""
-        if self.busy or getattr(self, 'desbloqueando', False):
+        if self.busy or lote_activo(self) or getattr(self, 'desbloqueando', False):
             self.cantidad_var.set(str(len(self.nombres)))
             return False
         try:
@@ -801,6 +827,8 @@ class App:
         self.events.put(('estado', (n, texto, color)))
 
     def ruta(self):
+        if lote_activo(self):
+            return self.conexion.batch.snapshot['path']
         p = self.console.get().strip().strip('"')
         return p if Path(p).is_file() else None
 
@@ -811,6 +839,8 @@ class App:
                 if ev == 'log':
                     self.log.configure(state='normal')
                     self.log.insert('end', data + '\n')
+                    if int(self.log.index('end-1c').split('.')[0]) > 3500:
+                        self.log.delete('1.0', '501.0')
                     self.log.see('end')
                     self.log.configure(state='disabled')
                 elif ev == 'estado':
@@ -833,7 +863,7 @@ class App:
 
     # ---------- preparar
     def start(self):
-        if self.busy:
+        if self.busy or lote_activo(self):
             return
         if not self.aplicar_cantidad():
             return
@@ -913,7 +943,7 @@ class App:
         path = self.ruta()
         if not path:
             return
-        if self.busy:
+        if self.busy or lote_activo(self):
             messagebox.showinfo('Gestoría Díaz', 'Espera a que el bot termine lo que está haciendo.')
             return
         if not messagebox.askyesno('Gestoría Díaz',
@@ -950,6 +980,9 @@ class App:
 
     # ---------- abrir IMSS
     def imss(self):
+        if lote_activo(self):
+            self.emit('Pausa el lote antes de reabrir las aplicaciones manualmente.')
+            return
         path = self.ruta()
         if path:
             threading.Thread(target=self._imss, args=(path,), daemon=True).start()
@@ -1017,6 +1050,10 @@ class App:
         return True
 
     def refrescar_correos(self):
+        outlook = self.__dict__.get('outlook')
+        if outlook:
+            self.info_correos.configure(text=outlook.active_email.get())
+            return
         d = len(self.disponibles())
         self.info_correos.configure(text=f'{len(self.correos)} cargados · {d} disponibles')
 
@@ -1028,6 +1065,9 @@ class App:
         return destino / nombre_archivo
 
     def consulta(self):
+        if lote_activo(self):
+            self.emit('Pausa el lote antes de iniciar una solicitud individual.')
+            return
         path = self.ruta()
         curp = self.curp.get().strip().upper()
         if not path:
@@ -1389,16 +1429,21 @@ class App:
                 txt = todo_texto(pantalla(path, idx))
                 if tramite_confirmado(txt) or re.search(r'\berror\b|no se pudo', texto_normalizado(txt)):
                     break
-        foto = self.foto(path, idx, f'{curp}_{CORTO.get(tramite, "tramite")}.png')
         self.resultado_tramite = tramite_confirmado(txt)
+        guardar_captura = not (connection and connection.__dict__.get('batch_mode') and self.resultado_tramite)
+        foto = self.foto(path, idx, f'{curp}_{CORTO.get(tramite, "tramite")}.png') if guardar_captura else None
+        detalle_captura = f' Captura: {foto.name}' if foto else ''
         if self.resultado_tramite:
-            self.emit(f'📨 {tramite}: IMSS confirmó el envío al correo. Captura: {foto.name}')
+            self.emit(f'📨 {tramite}: IMSS confirmó el envío al correo.{detalle_captura}')
         else:
-            self.emit(f'⚠ No pude confirmar el envío de {tramite}. Revisa la captura: {foto.name}')
+            self.emit(f'⚠ No pude confirmar el envío de {tramite}.{detalle_captura}')
         self.emit(f'   Pantalla: {txt[:200]}')
         self.events.put(('aviso', f'📨 Revisa el correo de {tramite}' if self.resultado_tramite else 'Revisa la instancia: envío no confirmado por IMSS.'))
 
     def cerrar_sesion(self):
+        if lote_activo(self):
+            self.emit('Pausa el lote antes de cerrar una sesión manualmente.')
+            return
         connection = self.__dict__.get('conexion')
         if connection and connection.active:
             self.emit('Detén la solicitud conectada antes de cerrar la sesión de IMSS.')
@@ -1464,7 +1509,7 @@ class App:
             faltan = [n for n in nombres if n not in inst]
             for n in faltan:
                 self.olvidar(n)
-            if faltan and self.auto_on and not self.busy and time.time() - self.ultimo_auto > 90:
+            if faltan and self.auto_on and not self.busy and not lote_activo(self) and time.time() - self.ultimo_auto > 90:
                 self.ultimo_auto = time.time()
                 self.emit('♻ Faltan ' + ', '.join(faltan) + ': las creo de nuevo desde la plantilla')
                 self.root.after(0, self.start)

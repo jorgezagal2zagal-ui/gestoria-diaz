@@ -7,7 +7,7 @@ import sys
 import time
 import uuid
 
-PROTOCOL = 2
+PROTOCOL = 3
 
 
 def data_directory():
@@ -16,9 +16,9 @@ def data_directory():
         return (
             (Path(base) if base else Path.home() / "AppData" / "Local")
             / "GestoriaDiazPuente"
-            / "V2"
+            / "V3"
         )
-    return Path(__file__).resolve().parents[1] / ".datos_conexion" / "v2"
+    return Path(__file__).resolve().parents[1] / ".datos_conexion" / "v3"
 
 
 def write_json(path, value):
@@ -34,10 +34,10 @@ def write_json(path, value):
         temporary.unlink(missing_ok=True)
 
 
-def read_json(path):
+def read_json(path, max_bytes=65536):
     try:
         path = Path(path)
-        if path.stat().st_size > 65536:
+        if path.stat().st_size > max_bytes:
             return None
         value = json.loads(path.read_text(encoding="utf-8"))
         return value if isinstance(value, dict) else None
@@ -58,12 +58,22 @@ class Bridge:
                 and re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value.strip())
             )
         )
+        if len(clean) > 50000:
+            raise ValueError("La conexión admite hasta 50 000 correos importados.")
+        if (
+            clean != self.__dict__.get("_published_emails")
+            or not (self.root / "cuentas.json").exists()
+        ):
+            catalog = uuid.uuid4().hex
+            write_json(self.root / "cuentas.json", {"id": catalog, "emails": clean})
+            self._published_emails = clean
+            self._catalog_id = catalog
         write_json(
             self.root / "outlook.json",
             {
                 "protocol": PROTOCOL,
                 "at": time.time(),
-                "emails": clean,
+                "catalog": self._catalog_id,
                 "active": bool(active),
             },
         )
@@ -76,15 +86,57 @@ class Bridge:
             or not isinstance(info.get("at"), (float, int))
             or not -2 <= time.time() - info["at"] < 8
             or info.get("active") is not True
-            or not isinstance(info.get("emails"), list)
-            or any(
-                not isinstance(value, str)
-                or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value)
-                for value in info["emails"]
-            )
         ):
             return None
-        return info
+        catalog = self.__dict__.get("_catalog_cache")
+        if not catalog or catalog.get("id") != info.get("catalog"):
+            catalog = read_json(self.root / "cuentas.json", max_bytes=8 * 1024 * 1024)
+            if (
+                not catalog
+                or catalog.get("id") != info.get("catalog")
+                or not isinstance(catalog.get("emails"), list)
+                or len(catalog["emails"]) > 50000
+                or any(
+                    not isinstance(value, str)
+                    or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value)
+                    for value in catalog["emails"]
+                )
+            ):
+                return None
+            self._catalog_cache = catalog
+        return {**info, "emails": list(catalog["emails"])}
+
+    def pulse(self, active):
+        if (
+            "_catalog_id" not in self.__dict__
+            or not (self.root / "cuentas.json").exists()
+        ):
+            self.publish(self.__dict__.get("_published_emails", []), active)
+            return
+        write_json(
+            self.root / "outlook.json",
+            {
+                "protocol": PROTOCOL,
+                "at": time.time(),
+                "catalog": self._catalog_id,
+                "active": bool(active),
+            },
+        )
+
+    def excluded_emails(self):
+        from .health import MailboxHealth
+
+        return MailboxHealth(self.root).excluded()
+
+    def email_failed(self, email, reason, seconds=600):
+        from .health import MailboxHealth
+
+        MailboxHealth(self.root).block(email, reason, seconds)
+
+    def email_ready(self, email):
+        from .health import MailboxHealth
+
+        MailboxHealth(self.root).clear(email)
 
     def create(self, email, instance, sender, subject, code_timeout=180):
         if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", sender) or not subject.strip():
@@ -177,7 +229,8 @@ class Bridge:
         return read_json(self.job(key) / "response.json")
 
     def started(self, key):
-        write_json(self.job(key) / "started.json", {"at": time.time()})
+        if not self.cancelled(key):
+            write_json(self.job(key) / "started.json", {"at": time.time()})
 
     def waiting(self, key):
         if not self.cancelled(key):

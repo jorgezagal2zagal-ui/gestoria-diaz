@@ -1,0 +1,71 @@
+GESTORIA DIAZ V3 - VALIDACION LOCAL
+
+165 pruebas automaticas de IMSS, conexion y cola: aprobadas.
+31 pruebas del Outlook original: aprobadas.
+10 escenarios de Chromium con bandeja local simulada: aprobados.
+Total: 206 pruebas automaticas. No se usaron cuentas ni tramites reales.
+
+PRUEBAS DE VOLUMEN
+- Importacion atomica de 10 000 CURP, reimportacion sin duplicarlas y paginacion.
+- Rechazo de importaciones invalidas y de mas de 10 000 entradas por archivo.
+- Catalogo de 50 000 correos: latido menor de 1 KB y catalogo sin reescritura
+  cuando no cambian las cuentas. Ninguna contrasena forma parte del catalogo.
+- Ejecucion de 500 solicitudes SIMULADAS, en secuencia, con resultados correlacionados.
+Estos numeros prueban carga local y persistencia; no son una prueba de volumen
+contra Microsoft o IMSS ni una promesa de velocidad en Windows.
+
+PRUEBA CONJUNTA
+La cola entrega cuatro CURP al trabajador IMSS y al trabajador Outlook usando
+la conexion de archivos real. El primer tramite simulado rechaza dos codigos y
+acepta el tercero; los demas completan al primero. Se comprueban seis correos,
+cuatro resultados, cierre de navegadores simulados y eliminacion de codigos temporales.
+
+RECUPERACION Y SECUENCIA
+- Asignacion exclusiva de una solicitud y reparto entre las instancias elegidas.
+- Pausa tras la actual y reanudacion sin repetir las completadas.
+- Fallo desconocido, cierre inesperado y resultado incierto requieren revision.
+- Limite de tres fallos consecutivos y parada al faltar correos o haber limitacion.
+- Presupuesto acumulado al reanudar: dos intentos usados dejan solo uno, con el
+  mismo identificador de solicitud y el intento 3 en el historial.
+- Una carrera entre Detener y el arranque del trabajador no inicia un tramite nuevo.
+- Cierre de sesion mediante controles de IMSS simulados y rechazo de pantallas desconocidas.
+- Confirmacion de envio conservada; en lotes exitosos no se generan capturas masivas.
+
+PANEL UNICO
+Una sola raiz Tk contiene Outlook, CURP, instancias y avance. El correo se escribe
+una vez. En una prueba con proveedor simulado, Outlook confirma la bandeja antes
+de llamar al bot IMSS; el lector entrega el codigo a ese mismo correo/CURP y el
+resultado queda confirmado. Se verifica que no aparezca otro panel Tk y que el
+navegador simulado se cierre al salir. La autenticacion y el tramite no son reales.
+Dos pruebas adicionales verifican el correo elegido y la rotacion sincronizada
+tras rechazos, comenzando por ese correo y respetando el limite de tres.
+
+INTERFACES
+Ventanas Tk abiertas en una pantalla virtual. Comprobados selector 1-5,
+configuracion, progreso, historial, omision y detencion, y activacion de Outlook.
+En la ventana de lotes se prueban inicio, pausa, reanudacion, resultados y bloqueo
+de cambios de instancias mientras el lote esta en curso. Sin actuar en LDPlayer.
+
+LECTOR EN NAVEGADOR
+Chromium ejecuta diez casos con HTML local e intercepcion de las rutas de Outlook:
+mensajes nuevos, iframe, carga diferida, encabezado mailto, numeros internacionales,
+correo viejo, remitente incorrecto, codigos ambiguos, fechas, recarga y pestañas.
+No se autentica en Microsoft. Las estructuras reales de Outlook pueden variar.
+
+REPRODUCIR EN EL REPOSITORIO
+python -m unittest discover -s tests -v
+python -m unittest discover -s outlook_bot -p "test_*.py" -v
+
+Con Tk y una pantalla disponible, prueba GUI integrada sin cuentas reales:
+python tests/gui_unified_check.py
+
+Con Playwright en un entorno de pruebas separado y Chromium local en Linux:
+PYTHONPATH=. python tests/browser_reader_check.py
+El navegador puede requerir permisos de inicio adicionales en entornos aislados.
+Playwright no es una dependencia del bot distribuido.
+
+INTEGRIDAD Y LIMITES
+Se compara el respaldo V2 y el Outlook original byte por byte. El ZIP se extrae,
+se verifican hashes y se importan los dos bots. Los scripts .bat se revisan como
+texto: no se ejecutan en Windows. La prueba real de LDPlayer, selectores de la
+sesion IMSS, remitente/asunto y recepcion Outlook sigue pendiente en tu equipo.

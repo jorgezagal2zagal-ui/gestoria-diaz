@@ -1,85 +1,125 @@
-GESTORIA DIAZ - VERSION 2 - OUTLOOK E IMSS CONECTADOS
+GESTORIA DIAZ V3 - COLA PERSISTENTE PARA FLUJOS GRANDES
 
-COMO EMPEZAR
-1. Extrae TODO el ZIP en una carpeta nueva y fija. Cierra las versiones anteriores.
-2. Ejecuta INICIAR_TODO.bat. La primera vez prepara las dependencias; las
-   siguientes reutiliza el entorno instalado. Necesitas Windows, Python 3.10
-   o superior con Tcl/Tk, LDPlayer y los navegadores habituales de tu Outlook.
-3. En Outlook importa el TXT correo:contrasena y pulsa ACTIVAR CONEXION IMSS.
-4. En IMSS abre Configurar lector. Copia el REMITENTE COMPLETO y una parte
-   del ASUNTO de un correo real del IMSS que contenga el codigo. Guarda.
-   Esos datos no se inventan ni se pueden deducir de las capturas recibidas.
-5. Prepara las instancias con PREPARAR / ENCENDER. Escribe la CURP, elige
-   instancia y tramite y pulsa INICIAR con la conexion automatica marcada.
+EMPEZAR
+1. Extrae TODO el ZIP en una carpeta nueva. Cierra V1, V2 y otras copias.
+2. Ejecuta INICIAR_TODO.bat: abre UN SOLO PANEL con Outlook e IMSS integrados.
+   Necesitas Windows, Python 3.10 o superior con Tcl/Tk, LDPlayer y los navegadores
+   habituales. No abras el lanzador Outlook separado mientras usas el panel unico.
+3. En Solicitud y correo, escribe el correo y su contrasena inicial y pulsa
+   USAR CORREO, o importa el TXT correo:contrasena una sola vez. Si ya esta
+   importado, basta seleccionarlo. No se guarda la contrasena en disco.
+4. Configura el remitente COMPLETO y parte del asunto del mensaje real del IMSS
+   que contiene el codigo. Son datos iniciales del lector, no del cliente.
+5. En Instancias elige de 1 a 5 y pulsa PREPARAR / ENCENDER. Espera a que termine.
+6. Para una solicitud, vuelve a Solicitud y correo, escribe la CURP, elige el
+   tramite y pulsa INICIAR. No copies el correo ni el codigo entre paneles.
+7. Para un lote abre COLA DE CURP - LOTES, importa TXT/CSV y pulsa Iniciar / reanudar.
+   El panel procesa UNA solicitud a la vez y reparte
+   las solicitudes entre las instancias seleccionadas. No son cinco logins
+   simultaneos. La duracion depende de tu PC, Outlook, IMSS y LDPlayer.
 
-Tambien puedes abrir INICIAR_OUTLOOK_CONECTADO.bat e INICIAR_IMSS.bat por
-separado. Usa Comprobar conexion para revisar la configuracion del panel.
-DIAGNOSTICO.bat comprueba dependencias, escritura e integridad del paquete
-sin iniciar ninguna cuenta ni ningun tramite.
+CAPACIDAD Y FORMATOS
+- Hasta 10 000 CURP por archivo y 100 000 registros en el almacen de la cola.
+- Hasta 50 000 cuentas en Outlook conectado; sus contrasenas siguen en memoria.
+- La tabla de la cola muestra 100 filas por pagina y permite filtrar por estado.
+- TXT: una CURP por linea. Usa el tramite seleccionado en el panel al importar.
+- CSV UTF-8: columna curp obligatoria; tramite e instancia opcionales.
+  Se aceptan coma, punto y coma o tabulador como separador.
+- Los nombres de los tramites deben coincidir con los del panel IMSS.
+- Instancia puede quedar vacia para reparto automatico, o indicar por ejemplo
+  GESTORIA_DIAZ_001. Si fijas una instancia, debe estar seleccionada y preparada.
+- Las plantillas de ejemplos vienen vacias. Completa tus datos reales.
+- Se validan formato y fecha de la CURP; esto no comprueba su existencia oficial.
+- Un archivo invalido se rechaza sin importar parcialmente sus solicitudes.
+- La misma CURP con el mismo tramite no se vuelve a insertar aunque se importe
+  otro archivo. Las completadas se conservan y no se reenvian al reanudar.
 
-FLUJO Y TRES INTENTOS
-- Primero Outlook abre la bandeja del correo elegido. IMSS empieza despues.
-- El lector guarda una referencia anterior a la solicitud. Lee mensajes nuevos
-  con el asunto configurado y comprueba el remitente del mensaje abierto.
-- Entrega un unico codigo de seis digitos a esa solicitud e instancia.
-- Si IMSS rechaza el codigo, acepta/cancela esa validacion, confirma que
-  regreso al formulario y ambos bots pasan al siguiente correo.
-- Hay un maximo de TRES CORREOS por solicitud; cada correo conserva los
-  reintentos de navegador del Outlook original. Si no se logra, lo informa.
-- Si no puede determinar si IMSS ya completo el tramite, se detiene y pide
-  revision. Asi evita repetir una solicitud que pudiera haberse enviado.
+FLUJO POR CADA CURP
+Outlook abre la bandeja -> IMSS confirma un formulario de inicio de sesion ->
+inicia la consulta -> el lector busca el mensaje nuevo -> comprueba remitente,
+asunto y codigo -> entrega seis digitos a la misma instancia -> IMSS valida ->
+solicita la constancia -> registra el resultado confirmado.
 
-LECTOR V2
-- Soporta el cuerpo de mensajes dentro de marcos y encabezados con datos
-  nativos del remitente, incluida la direccion mailto del encabezado.
-- Tolera cargas lentas y elementos que Outlook reemplaza mientras se leen.
-- Distingue actualizaciones de correos viejos de mensajes nuevos; tambien
-  reconoce una conversacion que recibe un mensaje con nueva fecha nativa.
-- Si Outlook muestra las pestanas Prioritarios/Otros o Focused/Other, revisa
-  ambas. En la vista alternativa exige una fecha verificable posterior a la
-  solicitud. No adivina fechas a partir del texto del mensaje.
-- Acepta codigos con espacios, guiones y digitos de ancho completo. Rechaza
-  numeros sin contexto, codigos ambiguos y respuestas anteriores citadas.
-- Actualiza la bandeja como maximo tres veces, separadas al menos 25 segundos,
-  conservando la referencia. Si Microsoft sigue limitando solicitudes, para.
-- Espera por defecto 180 segundos desde que IMSS pide el codigo; puedes
-  configurar de 60 a 300 segundos. La frescura se mide desde antes de iniciar
-  esa solicitud. El tiempo del login IMSS no consume esa espera por codigo.
-- Si no puede verificar remitente, asunto, fecha/identidad o un codigo unico,
-  no entrega un supuesto codigo. La vista nueva de Outlook puede requerir
-  adaptar los selectores: debe comprobarse con tu cuenta real.
+En el panel unico, si queda una sesion IMSS anterior, intenta cerrarla mediante controles
+visibles reconocidos. No pulsa coordenadas supuestas. Si encuentra una validacion
+pendiente o una pantalla desconocida, para y pide revision.
 
-PANEL Y REGISTROS
-El panel muestra etapa, correo, intento, tiempo restante y diagnostico del lector.
-Omitir correo funciona al abrir Outlook o esperar el codigo. Despues de entregar
-el codigo no permite saltarlo mientras IMSS esta validandolo.
-Detener cancela los siguientes pasos; una accion ya enviada puede seguir
-procesandose en IMSS. No vuelvas a iniciar sin revisar un resultado incierto.
+Si IMSS rechaza el codigo, ambos bots pasan sincronizados al siguiente correo.
+Como maximo se intentan TRES CORREOS por solicitud. Una pausa por falta de cuentas
+conserva el presupuesto gastado: si ya uso dos, al reanudar solo queda uno.
+Cada correo conserva los reintentos de navegador del Outlook original.
+Necesitas al menos un correo disponible por CURP; los rechazos pueden consumir
+mas. Cuando no quedan correos, conserva la CURP pendiente y pausa el lote.
 
-Historial / exportar muestra cada intento con CURP, correo, instancia, tramite,
-resultado y motivo. Exporta el historial completo a CSV. Una solicitud que quedo
-abierta tras cerrar el programa se marca interrumpida al volver a abrirlo:
-no se reanuda ni se repite automaticamente. No guarda contrasenas ni codigos.
-Los datos V2 se conservan en %LOCALAPPDATA%\GestoriaDiazPuente\V2.
-El historial de correos de Outlook y los datos anteriores de IMSS se conservan.
+CONTROL DEL LOTE
+- Pausar al terminar actual: completa el paso actual y conserva el resto.
+- Detener ahora: detiene los siguientes pasos y conserva los pendientes.
+  Una accion ya enviada a IMSS puede seguir procesandose; su resultado se revisa.
+- Hay una pausa de 10 segundos entre solicitudes, configurable entre 5 y 120.
+- Si Microsoft limita solicitudes, se pausa. No cambia automaticamente de
+  navegador para intentar saltarse esa limitacion.
+- Tres solicitudes consecutivas sin completar pausan el lote para revision.
+- Si un correo no logra iniciar sesion, se excluye temporalmente por 10 minutos;
+  si pide verificacion adicional, por una hora. Un acceso correcto quita esa espera.
+- Las instancias, las solicitudes individuales y la configuracion no se cambian
+  mientras corre un lote. Pausa primero y espera a que termine la actual.
 
-Si IMSS ya tiene una sesion iniciada de un tramite anterior, usa Cerrar sesion
-IMSS antes de iniciar la siguiente CURP, igual que en el bot original.
-Hay UNA solicitud activa a la vez. Se impide abrir dos copias V2 del mismo bot.
-Cierra V1 antes de usar V2. Puedes desmarcar la conexion para continuar en modo
-manual; las funciones de PIN, seis casillas y cambio de dispositivo se conservan.
+REVISION, REINICIOS E HISTORIAL
+Las solicitudes y sus resultados quedan guardados en el usuario de Windows:
+%LOCALAPPDATA%\GestoriaDiazPuente\V3
+Al abrir de nuevo no inicia el lote solo: conserva las pendientes. Una solicitud
+que estaba en curso al cerrarse pasa a revision, sin volver a enviarse.
 
-RESPALDO
-La carpeta respaldos contiene el ZIP V1 exacto y su comprobante SHA256.
-Para volver a V1, cierra ambos bots V2, extrae el ZIP de respaldo en otra carpeta
-vacía y usa los lanzadores de V1. No ejecutes ambas versiones a la vez.
-Los siete archivos de outlook_bot son identicos a los originales suministrados.
-La conexion y las mejoras estan en los componentes nuevos del paquete.
+La cola se detiene ante un resultado externo incierto. Revisa la instancia y
+el correo, selecciona la fila y confirma completada, omite o vuelve a pendientes.
+Volver a pendientes es una decision manual y renueva el presupuesto de tres
+correos. Los intentos anteriores se conservan en el historial detallado.
+Las completadas no se reponen automaticamente en pendientes.
+Cancelar pendientes conserva las filas y no toca las completadas ni las de revision.
 
-VALIDACION Y LIMITES
-Lee VALIDACION_V2.txt para ver las pruebas realizadas y reproducirlas.
-Las pruebas del lector usan un navegador Chromium real con bandejas SIMULADAS
-locales; no se ha conectado a tu Outlook ni a tu LDPlayer de Windows.
-Las comprobaciones locales no pueden certificar ese funcionamiento real.
-Cuando puedas usar tu PC, prueba primero UNA cuenta y UNA instancia, confirma
-remitente/asunto y revisa el resultado antes de ejecutar mas solicitudes.
+Exportar lote CSV guarda TODAS las filas, no solo la pagina visible. El historial
+por solicitud/correo tambien esta disponible desde el panel principal.
+No se guardan contrasenas, cuerpos de correos ni codigos de verificacion en esos
+historiales. La conexion solo intercambia datos de la solicitud y el codigo temporal.
+
+MEJORAS PARA EJECUCIONES LARGAS
+- La lista de cuentas se publica solo al cambiar. El latido de conexion es pequeno.
+- Al cambiar el estado de una cuenta se actualiza su fila; no redibuja toda la lista.
+- La tabla de lotes pagina los datos y no se reconstruye si no hay cambios.
+- El registro visible conserva unas 3 000-3 500 lineas; los resultados completos
+  quedan en los historiales exportables.
+- En lotes no genera capturas por cada envio confirmado. Conserva capturas
+  cuando el resultado no puede confirmarse. El modo individual conserva sus capturas.
+- Las conexiones del historial y la cola se cierran tras cada transaccion.
+
+LECTOR Y MODO INDIVIDUAL
+Conserva las mejoras V2: lectura de mensajes con marcos, cargas lentas, codigos
+ambiguos o antiguos, remitente nativo y pestanas Prioritarios/Otros cuando se
+reconocen. La vista alternativa exige una fecha verificable posterior a la solicitud.
+Espera por defecto 180 segundos desde que IMSS pide el codigo (60-300 configurables).
+Si faltan datos verificables no entrega un supuesto codigo.
+Puedes usar el modo individual cuando el lote esta pausado y no hay solicitud activa.
+Los siete archivos originales de outlook_bot no se modificaron.
+
+CORREO COMPARTIDO EN UN SOLO PANEL
+El correo se elige una sola vez arriba. El panel muestra Correo activo en ambos
+bots. Outlook debe confirmar la bandeja ANTES de que IMSS inicie la solicitud.
+Si escribiste un correo concreto, lo usa primero. Si IMSS rechaza el codigo,
+ambos pasan al siguiente correo de la lista (si hay mas cuentas disponibles).
+El codigo se lee del mensaje nuevo y se entrega automaticamente a la misma CURP
+e instancia. Despues continua el tramite seleccionado, incluidas las semanas
+cotizadas. El campo de codigo es de lectura en modo automatico.
+Para lotes se utiliza el siguiente correo disponible, sin fijarlo manualmente.
+El boton Resultados Outlook conserva las tres listas y exportacion CSV/TXT.
+Los lanzadores separados se conservan como alternativa avanzada; cierralos antes
+de iniciar INICIAR_TODO. La ventana del navegador puede abrirse para el login,
+pero hay un solo panel de control para los dos bots.
+
+RESPALDOS Y VALIDACION
+El ZIP incluye respaldos exactos V1 y V2. Para volver, cierra V3 y extrae el
+respaldo elegido en otra carpeta. No ejecutes ambas versiones al mismo tiempo.
+DIAGNOSTICO.bat comprueba dependencias e integridad sin abrir cuentas ni tramites.
+Lee VALIDACION_V3.txt: las pruebas son locales y con proveedores simulados.
+No se ha conectado esta version a tu Outlook ni a tu LDPlayer real en Windows.
+Prueba primero UNA CURP, UNA cuenta y UNA instancia cuando puedas usar tu PC;
+despues un lote pequeno antes de cargar el flujo grande.

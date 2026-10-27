@@ -13,6 +13,7 @@ from .bridge import Bridge, read_json, write_json
 from .history import RequestHistory, FIELDS
 from .locking import ProcessLock
 from .reader import normalized
+from .result import RequestResult
 
 STEPS = {
     "listo": 0,
@@ -46,8 +47,8 @@ class ImssConnection:
             self.available = False
         if not self.available:
             messagebox.showerror(
-                "IMSS V2",
-                "Ya hay otro panel IMSS V2 abierto, o no se puede acceder a la carpeta de conexión. Cierra esta copia.",
+                "IMSS V3",
+                "Ya hay otro panel IMSS V3 abierto, o no se puede acceder a la carpeta de conexión. Cierra esta copia.",
                 parent=self.app.root,
             )
             self.app.root.destroy()
@@ -64,6 +65,7 @@ class ImssConnection:
         saved = read_json(self.bridge.root / "preferencias.json") or {}
         self.sender = tk.StringVar(value=saved.get("sender", ""))
         self.subject = tk.StringVar(value=saved.get("subject", ""))
+        self.preferred_email = tk.StringVar(value="")
         saved_timeout = saved.get("code_timeout", 180)
         self.code_timeout = tk.IntVar(
             value=saved_timeout
@@ -78,13 +80,32 @@ class ImssConnection:
         )
         self.app.root.protocol("WM_DELETE_WINDOW", self.close_window)
         self.app.root.after(200, self.tick)
+        from .batch_ui import BatchPanel
+
+        self.batch = BatchPanel(self)
 
     def close_window(self):
+        batch = self.__dict__.get("batch")
+        if batch:
+            batch.runner.stop()
         self.cancel.set()
         if self.job:
             self.bridge.finish(self.job)
         # Do not release a live worker's lock before the process exits.
-        self.app.root.destroy()
+        outlook = self.app.__dict__.get("outlook")
+        if outlook:
+            outlook.close()
+            deadline = time.monotonic() + 5
+
+            def finish_close():
+                if outlook.thread.is_alive() and time.monotonic() < deadline:
+                    self.app.root.after(100, finish_close)
+                else:
+                    self.app.root.destroy()
+
+            finish_close()
+        else:
+            self.app.root.destroy()
 
     def controls(self, parent):
         frame = tk.Frame(parent, bg="#222229", padx=12, pady=10)
@@ -102,7 +123,7 @@ class ImssConnection:
         ).pack(side="left")
         tk.Label(
             row,
-            text="VERSIÓN 2",
+            text="VERSIÓN 3",
             fg="#d9b75b",
             bg="#222229",
             font=("Segoe UI", 10, "bold"),
@@ -143,8 +164,20 @@ class ImssConnection:
         )
         self.skip_button.pack(side="left", padx=6)
         ttk.Button(actions, text="Detener", command=self.stop).pack(side="right")
+        self.batch.controls(frame)
 
     def tick(self):
+        if self.app.__dict__.get("outlook") and "entrada_codigo" in self.app.__dict__:
+            automatic = self.auto.get()
+            self.app.entrada_codigo.configure(
+                state="readonly" if automatic else "normal"
+            )
+            self.app.btn_codigo.configure(
+                text="Código automático" if automatic else "Enviar código",
+                state="disabled"
+                if automatic or self.active or not self.app.pendiente
+                else "normal",
+            )
         try:
             while True:
                 text, detail, stage, deadline = self.ui.get_nowait()
@@ -173,13 +206,13 @@ class ImssConnection:
             self.ui.put((text, detail, stage, self.deadline))
 
     def settings(self):
-        if self.active:
+        if self.active or (self.__dict__.get("batch") and self.batch.runner.running):
             self.app.emit(
                 "Detén la solicitud antes de cambiar la configuración del lector."
             )
             return
         window = tk.Toplevel(self.app.root)
-        window.title("Configurar lector V2")
+        window.title("Configurar lector V3")
         window.geometry("680x330")
         for label, variable in [
             ("Remitente completo del correo del IMSS", self.sender),
@@ -246,7 +279,7 @@ class ImssConnection:
         checks = [
             ("Lector IMSS único", self.available),
             ("Historial disponible", self.history is not None),
-            ("Outlook V2 conectado", bool(presence)),
+            ("Outlook V3 conectado", bool(presence)),
             ("Correos importados", bool(presence and presence["emails"])),
             (
                 "Remitente configurado",
@@ -274,7 +307,7 @@ class ImssConnection:
             )
             return
         window = tk.Toplevel(self.app.root)
-        window.title("Solicitudes IMSS · historial V2")
+        window.title("Solicitudes IMSS · historial V3")
         window.geometry("1100x520")
         ttk.Label(
             window,
@@ -362,8 +395,11 @@ class ImssConnection:
                 )
 
     def start(self, path, curp, instance, procedure):
+        if self.__dict__.get("batch") and self.batch.runner.running:
+            self.app.emit("Pausa el lote antes de iniciar una solicitud individual.")
+            return
         if not self.available:
-            self.app.emit("Ya hay otro panel IMSS V2 abierto. Cierra esta copia.")
+            self.app.emit("Ya hay otro panel IMSS V3 abierto. Cierra esta copia.")
             return
         if self.history is None:
             self.app.emit(
@@ -383,7 +419,7 @@ class ImssConnection:
         presence = self.bridge.presence()
         if not presence or not presence["emails"]:
             self.app.emit(
-                "Abre Outlook V2, importa las cuentas y pulsa ACTIVAR CONEXIÓN IMSS."
+                "Abre Outlook V3, importa las cuentas y pulsa ACTIVAR CONEXIÓN IMSS."
             )
             return
         try:
@@ -395,6 +431,10 @@ class ImssConnection:
             self.settings()
             return
         self.active = True
+        self.current_max_attempts = 3
+        self.attempt_offset = 0
+        self.current_request_id = None
+        self.current_preferred_email = self.preferred_email.get().strip().casefold()
         self.app.busy = True
         self.cancel.clear()
         self.skip.clear()
@@ -408,6 +448,9 @@ class ImssConnection:
         ).start()
 
     def stop(self):
+        batch = self.__dict__.get("batch")
+        if batch:
+            batch.runner.stop()
         if not self.active:
             return
         self.cancel.set()
@@ -545,19 +588,24 @@ class ImssConnection:
 
     def run(self, path, curp, instance, procedure, sender, subject):
         attempted = set()
-        request = RequestHistory.request_id()
+        request = self.__dict__.get("current_request_id") or RequestHistory.request_id()
         reason = "No se completó la solicitud."
         email = ""
         number = 0
+        status = "fallida"
+        submitted = False
+        offset = self.__dict__.get("attempt_offset", 0)
+        budget = self.__dict__.get("current_max_attempts", 3)
         try:
             self.app.pendiente = None
-            for number in range(1, 4):
+            for number in range(1, budget + 1):
                 if self.cancel.is_set():
                     return
                 if self.__dict__.get("skip"):
                     self.skip.clear()
                 presence = self.bridge.presence()
                 if not presence:
+                    status = "stopped"
                     reason = "Outlook no está conectado."
                     break
                 module = sys.modules[type(self.app).__module__]
@@ -566,20 +614,41 @@ class ImssConnection:
                     for v in module.correos_usados()
                     | self.app.usados_sesion
                     | attempted
+                    | self.bridge.excluded_emails()
                 }
-                email = next(
-                    (v for v in presence["emails"] if v.casefold() not in excluded),
-                    None,
-                )
+                pool = presence["emails"]
+                preferred = self.__dict__.get("current_preferred_email", "")
+                if preferred in pool:
+                    start = pool.index(preferred)
+                    pool = pool[start:] + pool[:start]
+                if not attempted and preferred:
+                    email = next(
+                        (
+                            v
+                            for v in pool
+                            if v.casefold() == preferred
+                            and v.casefold() not in excluded
+                        ),
+                        None,
+                    )
+                else:
+                    email = next(
+                        (v for v in pool if v.casefold() not in excluded), None
+                    )
                 if email is None:
-                    reason = "No quedan correos importados y disponibles en Outlook."
+                    status = "sin_correos"
+                    reason = (
+                        "El correo elegido no está disponible. Elige otro o usa el modo automático."
+                        if preferred and not attempted
+                        else "No quedan correos importados y disponibles en Outlook."
+                    )
                     break
                 attempted.add(email.casefold())
-                detail = f"Intento {number}/3 · {email} · {instance}"
+                detail = f"Intento {number + offset}/3 · {email} · {instance}"
                 self.attempt_label = detail
                 self.state("outlook", "Abriendo la bandeja de Outlook", detail, 330)
                 self.app.emit(
-                    f"Intento conectado {number}/3: abriendo la bandeja de {email}"
+                    f"Intento conectado {number + offset}/3: abriendo la bandeja de {email}"
                 )
                 timeout = self.__dict__.get("current_timeout", 180)
                 self.job = self.bridge.create(email, instance, sender, subject, timeout)
@@ -590,7 +659,7 @@ class ImssConnection:
                     curp,
                     instance,
                     procedure,
-                    number,
+                    number + offset,
                     email,
                     "outlook",
                     "en_curso",
@@ -612,8 +681,30 @@ class ImssConnection:
                             else "fallida"
                         )
                         if ready["status"] in ("limited", "stopped"):
+                            status = ready["status"]
                             break
                         continue
+                    if self.__dict__.get("batch_mode") or self.app.__dict__.get(
+                        "outlook"
+                    ):
+                        from .navigation import prepare_login
+
+                        self.state(
+                            "consulta", "Preparando IMSS para la siguiente CURP", detail
+                        )
+                        if not prepare_login(
+                            self.app,
+                            path,
+                            instance,
+                            self.cancel.is_set,
+                            self.cancel.wait,
+                        ):
+                            status = "sin_confirmar"
+                            reason = attempt_reason = (
+                                "No pude confirmar el formulario de IMSS; revisa la sesión anterior."
+                            )
+                            outcome = "sin_confirmar"
+                            break
                     self.bridge.started(self.job)
                     self.rejected = False
                     self.reset_ready = False
@@ -627,12 +718,13 @@ class ImssConnection:
                         curp,
                         instance,
                         procedure,
-                        number,
+                        number + offset,
                         email,
                         "consulta",
                         "en_curso",
                     )
                     self.app.root.after(0, lambda: self.app.codigo.set(""))
+                    submitted = True
                     self.app._consulta(path, curp, email, instance, procedure)
                     pending = self.app.pendiente
                     if self.cancel.is_set():
@@ -642,6 +734,7 @@ class ImssConnection:
                             "IMSS no llegó a solicitar el código. Revisa la instancia antes de repetir."
                         )
                         outcome = "sin_confirmar"
+                        status = "sin_confirmar"
                         break
                     self.bridge.waiting(self.job)
                     self.state(
@@ -652,7 +745,7 @@ class ImssConnection:
                         curp,
                         instance,
                         procedure,
-                        number,
+                        number + offset,
                         email,
                         "codigo",
                         "en_curso",
@@ -675,10 +768,11 @@ class ImssConnection:
                             else "fallida"
                         )
                         self.app.pendiente = None
-                        if response["status"] in (
-                            "limited",
-                            "stopped",
-                        ) or not self.return_to_login(path, pending[1]):
+                        if response["status"] in ("limited", "stopped"):
+                            status = response["status"]
+                            break
+                        if not self.return_to_login(path, pending[1]):
+                            status = "sin_confirmar"
                             break
                         continue
                     code = response.get("code", "")
@@ -687,6 +781,7 @@ class ImssConnection:
                         reason = attempt_reason = "Correo omitido por el usuario."
                         self.app.pendiente = None
                         if not self.return_to_login(path, pending[1]):
+                            status = "sin_confirmar"
                             break
                         continue
                     if (
@@ -697,6 +792,7 @@ class ImssConnection:
                         reason = attempt_reason = (
                             "La respuesta no corresponde a la solicitud activa."
                         )
+                        status = "sin_confirmar"
                         break
                     self.state(
                         "validando",
@@ -708,7 +804,7 @@ class ImssConnection:
                         curp,
                         instance,
                         procedure,
-                        number,
+                        number + offset,
                         email,
                         "validando",
                         "en_curso",
@@ -718,6 +814,8 @@ class ImssConnection:
                     )
                     self.app._codigo(code, *pending)
                     if self.app.resultado_tramite:
+                        status = "completada"
+                        reason = "IMSS confirmó el envío al correo."
                         outcome = "completada"
                         attempt_reason = "IMSS confirmó el envío al correo."
                         self.state(
@@ -743,7 +841,10 @@ class ImssConnection:
                             "IMSS no confirmó el resultado. Revisa la instancia antes de repetir."
                         )
                         outcome = "sin_confirmar"
+                        status = "sin_confirmar"
                     if not self.rejected or not self.reset_ready:
+                        if not self.reset_ready:
+                            status = "sin_confirmar"
                         break
                 finally:
                     if self.job:
@@ -759,14 +860,14 @@ class ImssConnection:
                         curp,
                         instance,
                         procedure,
-                        number,
+                        number + offset,
                         email,
                         "terminado",
                         outcome,
                         attempt_reason,
                     )
             if not self.cancel.is_set():
-                if not attempted:
+                if not attempted and offset == 0:
                     self.journal(
                         request,
                         curp,
@@ -781,21 +882,22 @@ class ImssConnection:
                 self.state(
                     "terminado",
                     "No se logró completar la solicitud",
-                    f"{len(attempted)}/3 correos intentados · {reason}",
+                    f"{len(attempted) + offset}/3 correos intentados · {reason}",
                 )
                 self.app.emit(
-                    f"No se logró completar la solicitud. Correos intentados: {len(attempted)}/3. {reason}"
+                    f"No se logró completar la solicitud. Correos intentados: {len(attempted) + offset}/3. {reason}"
                 )
                 self.app.events.put(
                     ("aviso", "No se logró completar la solicitud; revisa el registro.")
                 )
         except Exception:
+            status = "sin_confirmar"
             self.journal(
                 request,
                 curp,
                 instance,
                 procedure,
-                max(1, len(attempted)),
+                max(1, len(attempted)) + offset,
                 email or "",
                 "terminado",
                 "sin_confirmar"
@@ -814,6 +916,12 @@ class ImssConnection:
             if self.job:
                 self.bridge.finish(self.job)
                 self.job = None
+            if self.cancel.is_set() and status != "completada":
+                status = "detenida"
+                reason = "Solicitud detenida; revisar IMSS antes de repetir."
+            self.last_result = RequestResult(
+                status, len(attempted), email or "", reason, request, submitted
+            )
             self.active = False
             self.app.busy = False
             self.deadline = None

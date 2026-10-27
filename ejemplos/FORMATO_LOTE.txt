@@ -1,0 +1,4 @@
+# Escribe una CURP real por linea, sin correo ni contrasena.
+# Las lineas que empiezan con # no se importan.
+# El tramite sera el seleccionado en el panel IMSS al importar.
+# Este archivo viene vacio para evitar solicitudes accidentales.

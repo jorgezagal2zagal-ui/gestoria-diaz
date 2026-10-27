@@ -1,5 +1,7 @@
 """Local per-request journal. Passwords, message bodies and verification codes are excluded."""
 
+from contextlib import contextmanager, closing
+
 import csv
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,8 +49,11 @@ class RequestHistory:
                 correo TEXT NOT NULL, etapa TEXT NOT NULL, resultado TEXT NOT NULL, motivo TEXT NOT NULL,
                 PRIMARY KEY(solicitud,intento))""")
 
+    @contextmanager
     def connect(self):
-        return sqlite3.connect(self.path, timeout=5)
+        with closing(sqlite3.connect(self.path, timeout=5)) as db:
+            with db:
+                yield db
 
     def recover_interrupted(self):
         with self.connect() as db:
