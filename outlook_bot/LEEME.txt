@@ -21,9 +21,10 @@ DETENER: detiene la cola y cierra el navegador de este intento.
 Cuando abre Outlook correctamente, mantiene la bandeja abierta para que la uses.
 No lee ni envia mensajes. Para avanzar pulsa OMITIR CORREO / SIGUIENTE.
 Deten la cola para importar o quitar cuentas. INICIAR recorre la lista desde
-el principio. Los estados no se conservan al cerrar el panel.
+el principio. La columna Estado muestra esta sesion; el registro conserva
+los resultados aunque cierres el panel.
 
-Las cuentas quedan en memoria. No se escriben contrasenas en archivos ni en
+Las contrasenas quedan en memoria. No se escriben contrasenas en archivos ni en
 mensajes de error. La tabla oculta contrasenas salvo que marques Mostrar.
 
 Validacion: pruebas simuladas de recuperacion y prueba real de la interfaz Tk.
@@ -40,3 +41,18 @@ PANTALLAS RECUPERABLES
 - Almost there / Just one more step to verify it's you: omite directamente
   esa cuenta y pasa a la siguiente. No pide el codigo ni prueba otro navegador
   para esa cuenta. En la tabla aparece Omitido: verificacion adicional.
+
+REGISTRO DE RESULTADOS
+VER REGISTRO muestra la fecha, el correo, el resultado y el motivo.
+Entró a la bandeja: Outlook llego a abrir la bandeja de esa cuenta.
+No logró entrar: fallo el acceso o pidio verificacion adicional.
+Omitido: lo saltaste manualmente antes de entrar.
+Interrumpido: detuviste el intento o Microsoft limito las solicitudes.
+Las cuentas que no se intentaron no se marcan como fallidas.
+Se anade una fila por intento de cuenta, sin borrar los resultados anteriores.
+Un acceso exitoso se guarda antes de esperar a que pases al siguiente correo.
+Actualizar recarga la lista; Exportar CSV permite guardar una copia para Excel.
+
+En Windows se guarda automaticamente en:
+%LOCALAPPDATA%\GestoriaDiazOutlook\registro_correos.csv
+El registro solo contiene correo, fecha, resultado y motivo; nunca contrasenas.

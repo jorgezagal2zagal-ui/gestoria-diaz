@@ -6,8 +6,10 @@ import os
 import shutil
 import threading
 import queue
+import csv
 from automation import available_browsers, try_account, close_driver, LoginFailure, SkipRequested, RateLimited, VerificationRequired
 from core import parse_accounts, merge_accounts, Account
+from history import HistoryStore, FIELDS
 
 class App(tk.Tk):
     def __init__(self):
@@ -17,6 +19,7 @@ class App(tk.Tk):
         self.configure(bg='#111318')
         self.accounts = []
         self.states = {}
+        self.history = HistoryStore()
         self._events = queue.Queue()
         self._skip_event = threading.Event()
         self._stop_event = threading.Event()
@@ -47,6 +50,7 @@ class App(tk.Tk):
         self.skip_button.pack(side='left', padx=(0, 8))
         self.stop_button = ttk.Button(actions, text='DETENER', command=self.stop_accounts, state='disabled')
         self.stop_button.pack(side='left')
+        ttk.Button(actions, text='VER REGISTRO', command=self.show_history).pack(side='left', padx=8)
         table_frame = ttk.Frame(outer); table_frame.pack(fill='both', expand=True)
         self.table = ttk.Treeview(table_frame, columns=('email', 'password', 'state'), show='headings', selectmode='extended')
         self.table.heading('email', text='Correo'); self.table.heading('password', text='Contraseña leída')
@@ -60,7 +64,62 @@ class App(tk.Tk):
         ttk.Checkbutton(outer, text='Mostrar contraseñas (solo en esta pantalla)', variable=self.show_password, command=self.refresh).pack(anchor='w', pady=8)
         self.status = tk.StringVar(value='Importa un TXT con una cuenta por línea: correo:contraseña')
         ttk.Label(outer, textvariable=self.status).pack(anchor='w', pady=6)
-        ttk.Label(outer, text='Las cuentas solo se mantienen en memoria mientras el panel esté abierto; no se guardan en disco.').pack(anchor='w')
+        ttk.Label(outer, text='Las contraseñas solo quedan en memoria. El registro guarda correo, fecha y resultado.').pack(anchor='w')
+        self.history_status = tk.StringVar(value=f'Registro: {self.history.path}')
+        ttk.Label(outer, textvariable=self.history_status, wraplength=900).pack(anchor='w')
+
+    def _record_result(self, address, result, detail):
+        store = self.__dict__.get('history')
+        if store is None:
+            return
+        try:
+            store.append(address, result, detail)
+        except (OSError, UnicodeError, csv.Error):
+            self._post(lambda: self.history_status.set(
+                'No pude guardar el registro. Revisa el permiso de escritura de la carpeta de datos.'))
+
+    def show_history(self):
+        window = tk.Toplevel(self)
+        window.title('Registro de accesos a Outlook')
+        window.geometry('1000x520')
+        table = ttk.Treeview(window, columns=FIELDS, show='headings')
+        for field, width in zip(FIELDS, (200, 300, 180, 300)):
+            table.heading(field, text=field.capitalize())
+            table.column(field, width=width)
+        scroll = ttk.Scrollbar(window, orient='vertical', command=table.yview)
+        table.configure(yscrollcommand=scroll.set)
+        scroll.pack(side='right', fill='y')
+        table.pack(fill='both', expand=True)
+        summary = tk.StringVar()
+        ttk.Label(window, textvariable=summary).pack(anchor='w', padx=10, pady=5)
+
+        def refresh():
+            try:
+                rows = self.history.read()
+            except (OSError, UnicodeError, csv.Error):
+                messagebox.showerror('Registro', 'No se pudo leer el registro.', parent=window)
+                return
+            table.delete(*table.get_children())
+            for row in reversed(rows):
+                table.insert('', 'end', values=tuple(row.get(field, '') for field in FIELDS))
+            entered = sum(row.get('resultado') == 'Entró a la bandeja' for row in rows)
+            failed = sum(row.get('resultado') == 'No logró entrar' for row in rows)
+            summary.set(f'Intentos registrados: {len(rows)} | Entraron: {entered} | No entraron: {failed} | Omitidos/interrumpidos: {len(rows)-entered-failed}')
+
+        def export():
+            path = filedialog.asksaveasfilename(parent=window, defaultextension='.csv',
+                initialfile='registro_correos.csv', filetypes=[('Registro CSV', '*.csv')])
+            if path:
+                try:
+                    self.history.export(path)
+                except OSError:
+                    messagebox.showerror('Registro', 'No se pudo exportar el registro.', parent=window)
+
+        buttons = ttk.Frame(window)
+        buttons.pack(pady=8)
+        ttk.Button(buttons, text='Actualizar', command=refresh).pack(side='left', padx=5)
+        ttk.Button(buttons, text='Exportar CSV', command=export).pack(side='left', padx=5)
+        refresh()
 
     def _post(self, callback):
         self._events.put(callback)
@@ -133,6 +192,7 @@ class App(tk.Tk):
                 try:
                     driver = try_account(account, browsers,
                         lambda: self._skip_event.is_set() or self._stop_event.is_set(), report)
+                    self._record_result(address, 'Entró a la bandeja', 'Bandeja de Outlook abierta')
                     self._post(lambda address=address: self._account_status(address, 'Bandeja abierta'))
                     report('Bandeja abierta. Usa Omitir / siguiente para avanzar.')
                     # Keep this inbox usable until the user explicitly moves on.
@@ -141,16 +201,23 @@ class App(tk.Tk):
                             break
                     self._post(lambda address=address: self._account_status(address, 'Finalizado'))
                 except SkipRequested:
+                    stopped = self._stop_event.is_set()
+                    self._record_result(address, 'Interrumpido' if stopped else 'Omitido',
+                                        'Detenido por usuario' if stopped else 'Omitido manualmente')
                     self._post(lambda address=address: self._account_status(address, 'Omitido manualmente'))
                 except VerificationRequired:
+                    self._record_result(address, 'No logró entrar', 'Verificación adicional: Almost there')
                     self._post(lambda address=address: self._account_status(address, 'Omitido: verificación adicional'))
                 except RateLimited:
+                    self._record_result(address, 'Interrumpido', 'Microsoft limita solicitudes: Too Many Requests')
                     limited = True
                     self._post(lambda address=address: self._account_status(address, 'Microsoft limita solicitudes'))
                     break
                 except LoginFailure:
+                    self._record_result(address, 'No logró entrar', 'No se completó el acceso en los navegadores disponibles')
                     self._post(lambda address=address: self._account_status(address, 'Omitido: acceso no disponible'))
                 except Exception:
+                    self._record_result(address, 'No logró entrar', 'Error de navegador')
                     self._post(lambda address=address: self._account_status(address, 'Omitido: error de navegador'))
                 finally:
                     close_driver(driver)
