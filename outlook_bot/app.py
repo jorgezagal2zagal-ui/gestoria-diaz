@@ -9,7 +9,7 @@ import queue
 import csv
 from automation import available_browsers, try_account, close_driver, LoginFailure, SkipRequested, RateLimited, VerificationRequired
 from core import parse_accounts, merge_accounts, Account
-from history import HistoryStore, FIELDS
+from history import HistoryStore, FIELDS, GROUPS, group_results
 
 class App(tk.Tk):
     def __init__(self):
@@ -80,31 +80,58 @@ class App(tk.Tk):
 
     def show_history(self):
         window = tk.Toplevel(self)
-        window.title('Registro de accesos a Outlook')
-        window.geometry('1000x520')
-        table = ttk.Treeview(window, columns=FIELDS, show='headings')
-        for field, width in zip(FIELDS, (200, 300, 180, 300)):
-            table.heading(field, text=field.capitalize())
-            table.column(field, width=width)
-        scroll = ttk.Scrollbar(window, orient='vertical', command=table.yview)
-        table.configure(yscrollcommand=scroll.set)
-        scroll.pack(side='right', fill='y')
-        table.pack(fill='both', expand=True)
+        window.title('Correos por resultado')
+        window.geometry('1000x560')
+        ttk.Label(window, text='Último resultado por correo. El historial completo se conserva en CSV.').pack(anchor='w', padx=10, pady=8)
+        notebook = ttk.Notebook(window)
+        notebook.pack(fill='both', expand=True, padx=10)
+        tables = {}
+        grouped = {name: [] for name in GROUPS}
+        for category in GROUPS:
+            frame = ttk.Frame(notebook)
+            notebook.add(frame, text=category)
+            table = ttk.Treeview(frame, columns=FIELDS, show='headings')
+            for field, width in zip(FIELDS, (200, 300, 180, 300)):
+                table.heading(field, text=field.capitalize())
+                table.column(field, width=width)
+            scroll = ttk.Scrollbar(frame, orient='vertical', command=table.yview)
+            table.configure(yscrollcommand=scroll.set)
+            scroll.pack(side='right', fill='y')
+            table.pack(fill='both', expand=True)
+            tables[category] = table
         summary = tk.StringVar()
         ttk.Label(window, textvariable=summary).pack(anchor='w', padx=10, pady=5)
 
         def refresh():
+            nonlocal grouped
             try:
                 rows = self.history.read()
             except (OSError, UnicodeError, csv.Error):
                 messagebox.showerror('Registro', 'No se pudo leer el registro.', parent=window)
+                return False
+            grouped = group_results(rows)
+            for index, category in enumerate(GROUPS):
+                table = tables[category]
+                table.delete(*table.get_children())
+                for row in grouped[category]:
+                    table.insert('', 'end', values=tuple(row.get(field, '') for field in FIELDS))
+                notebook.tab(index, text=f'{category} ({len(grouped[category])})')
+            summary.set(' | '.join(f'{name}: {len(grouped[name])}' for name in GROUPS))
+            return True
+
+        def export_list():
+            if not refresh():
                 return
-            table.delete(*table.get_children())
-            for row in reversed(rows):
-                table.insert('', 'end', values=tuple(row.get(field, '') for field in FIELDS))
-            entered = sum(row.get('resultado') == 'Entró a la bandeja' for row in rows)
-            failed = sum(row.get('resultado') == 'No logró entrar' for row in rows)
-            summary.set(f'Intentos registrados: {len(rows)} | Entraron: {entered} | No entraron: {failed} | Omitidos/interrumpidos: {len(rows)-entered-failed}')
+            index = notebook.index(notebook.select())
+            category = GROUPS[index]
+            filename = ('correos_entraron.txt', 'correos_con_inconvenientes.txt', 'correos_omitidos.txt')[index]
+            path = filedialog.asksaveasfilename(parent=window, defaultextension='.txt',
+                initialfile=filename, filetypes=[('Lista de correos TXT', '*.txt')])
+            if path:
+                try:
+                    Path(path).write_text(''.join(row['correo'].strip() + '\n' for row in grouped[category]), encoding='utf-8')
+                except OSError:
+                    messagebox.showerror('Registro', 'No se pudo guardar la lista.', parent=window)
 
         def export():
             path = filedialog.asksaveasfilename(parent=window, defaultextension='.csv',
@@ -118,7 +145,8 @@ class App(tk.Tk):
         buttons = ttk.Frame(window)
         buttons.pack(pady=8)
         ttk.Button(buttons, text='Actualizar', command=refresh).pack(side='left', padx=5)
-        ttk.Button(buttons, text='Exportar CSV', command=export).pack(side='left', padx=5)
+        ttk.Button(buttons, text='Guardar lista TXT', command=export_list).pack(side='left', padx=5)
+        ttk.Button(buttons, text='Historial completo CSV', command=export).pack(side='left', padx=5)
         refresh()
 
     def _post(self, callback):

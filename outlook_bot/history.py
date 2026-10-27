@@ -9,6 +9,31 @@ import threading
 
 FIELDS = ('fecha', 'correo', 'resultado', 'detalle')
 RESULTS = ('Entró a la bandeja', 'No logró entrar', 'Omitido', 'Interrumpido')
+GROUPS = ('Entraron a la bandeja', 'Con inconvenientes', 'Omitidos')
+
+
+def group_results(rows):
+    """One entry per address, using its latest recorded attempt."""
+    latest = {}
+    for row in rows:
+        address = (row.get('correo') or '').strip()
+        if address:
+            key = address.casefold()
+            latest.pop(key, None)
+            latest[key] = row
+    grouped = {name: [] for name in GROUPS}
+    for row in reversed(list(latest.values())):
+        result = row.get('resultado', '')
+        detail = (row.get('detalle') or '').casefold()
+        verification = 'almost there' in detail or ('verificaci' in detail and 'adicional' in detail)
+        if result == 'Entró a la bandeja':
+            category = GROUPS[0]
+        elif result == 'Omitido' or (result == 'No logró entrar' and verification):
+            category = GROUPS[2]
+        else:
+            category = GROUPS[1]
+        grouped[category].append(row)
+    return grouped
 
 
 def history_path():

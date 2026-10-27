@@ -8,10 +8,42 @@ from unittest.mock import Mock, patch
 import app as panel
 import automation as engine
 from core import Account
-from history import HistoryStore, FIELDS
+from history import HistoryStore, FIELDS, GROUPS, group_results
 
 
 class HistoryTests(unittest.TestCase):
+    def test_three_lists_distinguish_entered_issues_and_manual_or_automatic_skip(self):
+        rows = [
+            {'correo':'ok@example.test','resultado':'Entró a la bandeja'},
+            {'correo':'error@example.test','resultado':'No logró entrar','detalle':'Acceso no disponible'},
+            {'correo':'limit@example.test','resultado':'Interrumpido','detalle':'Too Many Requests'},
+            {'correo':'manual@example.test','resultado':'Omitido'},
+            {'correo':'challenge@example.test','resultado':'No logró entrar','detalle':'Verificación adicional: Almost there'},
+        ]
+        grouped = group_results(rows)
+        self.assertEqual([r['correo'] for r in grouped[GROUPS[0]]], ['ok@example.test'])
+        self.assertEqual({r['correo'] for r in grouped[GROUPS[1]]}, {'error@example.test','limit@example.test'})
+        self.assertEqual({r['correo'] for r in grouped[GROUPS[2]]}, {'manual@example.test','challenge@example.test'})
+        self.assertEqual(len(rows),5)
+
+    def test_repeated_account_has_one_latest_result_across_all_lists(self):
+        rows = [
+            {'correo':'Same@example.test','resultado':'No logró entrar'},
+            {'correo':'other@example.test','resultado':'Omitido'},
+            {'correo':'same@EXAMPLE.test','resultado':'Entró a la bandeja'},
+        ]
+        grouped = group_results(rows)
+        self.assertEqual(len(grouped[GROUPS[0]]),1)
+        self.assertEqual(grouped[GROUPS[1]],[])
+        self.assertEqual(len(grouped[GROUPS[2]]),1)
+        self.assertEqual(len(rows),3)
+
+    def test_empty_history_and_incomplete_rows_do_not_crash_lists(self):
+        self.assertEqual(group_results([]), {name:[] for name in GROUPS})
+        grouped = group_results([{'correo':None,'detalle':None},
+                                {'correo':'incomplete@example.test','detalle':None}])
+        self.assertEqual(len(grouped[GROUPS[1]]),1)
+
     def test_results_survive_reopening_without_password_fields(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)/'nested'/'history.csv'

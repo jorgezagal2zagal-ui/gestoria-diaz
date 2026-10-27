@@ -44,6 +44,13 @@ PANTALLAS RECUPERABLES
 
 REGISTRO DE RESULTADOS
 VER REGISTRO muestra la fecha, el correo, el resultado y el motivo.
+Ahora se organiza en tres pestanas con contador:
+- Entraron a la bandeja.
+- Con inconvenientes: fallos de acceso e intentos interrumpidos.
+- Omitidos: los saltados manualmente o por verificacion adicional Almost there.
+Cada correo aparece una sola vez, en la lista de su ultimo resultado registrado.
+Guardar lista TXT exporta solo los correos de la pestana seleccionada.
+Historial completo CSV conserva todos los intentos anteriores, sin eliminarlos.
 Entró a la bandeja: Outlook llego a abrir la bandeja de esa cuenta.
 No logró entrar: fallo el acceso o pidio verificacion adicional.
 Omitido: lo saltaste manualmente antes de entrar.
@@ -51,7 +58,7 @@ Interrumpido: detuviste el intento o Microsoft limito las solicitudes.
 Las cuentas que no se intentaron no se marcan como fallidas.
 Se anade una fila por intento de cuenta, sin borrar los resultados anteriores.
 Un acceso exitoso se guarda antes de esperar a que pases al siguiente correo.
-Actualizar recarga la lista; Exportar CSV permite guardar una copia para Excel.
+Actualizar recarga las tres listas; Historial completo CSV guarda copia para Excel.
 
 En Windows se guarda automaticamente en:
 %LOCALAPPDATA%\GestoriaDiazOutlook\registro_correos.csv
