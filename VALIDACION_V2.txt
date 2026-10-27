@@ -1,0 +1,59 @@
+VALIDACION DE GESTORIA DIAZ CONECTADOS V2
+
+ALCANCE
+Se verifica el codigo y el paquete dentro de un entorno Linux en la nube.
+No se dispone del LDPlayer de Windows ni de una sesion autenticada del usuario.
+No se han usado credenciales reales ni se ha iniciado un tramite real en IMSS.
+
+PRUEBAS AUTOMATIZADAS
+138 pruebas de IMSS/conexion, 31 del Outlook original y 10 escenarios de
+navegador con bandeja simulada: 179 pruebas, todas aprobadas en esta revision.
+
+- Pruebas originales de PIN de Android/identidad, selector 1 a 5, seis casillas,
+  cambio de dispositivo, cambio de correo y persistencia de datos.
+- Conexion local real entre dos trabajadores: Outlook simulado listo antes de
+  IMSS, rechazo de dos correos y exito en el tercero. Se cierran los navegadores
+  simulados y se eliminan los archivos temporales que contienen el codigo.
+- Rechazo tras tres intentos, correlacion por correo/instancia, limites de
+  Microsoft, parada, omision, ausencia de bandeja reconocible y cierre.
+- Historial concurrente, exportacion CSV y recuperacion de intentos interrumpidos.
+- Bloqueo entre procesos y liberacion del bloqueo tras terminar el proceso.
+- Confirmacion de envio preservada antes de cerrar el aviso; respuesta lenta
+  y cancelacion antes de enviar la solicitud.
+
+NAVEGADOR REAL CON BANDEJA SIMULADA: 10 ESCENARIOS
+Chromium abre HTML local que representa las estructuras del lector. La ruta
+Outlook se intercepta localmente; no se hace login ni se contacta Microsoft.
+Se prueban mensajes nuevos, iframe, carga diferida, encabezado mailto, numeros
+internacionales, correo viejo, remitente incorrecto, codigos ambiguos, fechas
+futuras, recarga y Prioritarios/Otros con exigencia de fecha verificable.
+Estos escenarios comprueban el uso de selectores y los cambios del DOM en un
+navegador; no garantizan que la version real de Outlook exponga esos datos igual.
+
+INTERFACES
+Se abren las ventanas Tk en una pantalla virtual. Se comprueban selector de
+instancias, configuracion, historial, progreso, omision y detencion; tambien
+activacion y detencion del panel Outlook conectado. Sin actuar sobre LDPlayer.
+
+INSTALACION Y ARCHIVO
+Se prepara un entorno Python nuevo, se comprueban dependencias y se repite
+la preparacion para verificar que reutiliza las dependencias. Se extrae el ZIP
+final, se verifica cada hash y se importan los dos bots desde esa extraccion.
+Los archivos Outlook originales y el respaldo V1 se comparan byte por byte.
+Los scripts .bat de Windows se revisan como texto; no se ejecutan en Windows.
+
+REPRODUCIR DESDE EL REPOSITORIO
+python -m unittest discover -s tests -v
+python -m unittest discover -s outlook_bot -p "test_*.py" -v
+
+Pruebas opcionales del navegador: instala playwright en un entorno de pruebas
+separado, usa Chromium local y ejecuta con la raiz del repositorio en PYTHONPATH:
+python tests/browser_reader_check.py
+El script del navegador usa /usr/bin/chromium en Linux; puede adaptarse la ruta
+al equipo de pruebas. Playwright no forma parte de las dependencias del bot.
+
+ANTES DEL USO REAL
+Configurar remitente y asunto reales. Ejecutar una cuenta y una instancia en
+Windows. Verificar que la bandeja se reconoce, que solo se lee el mensaje nuevo,
+que IMSS acepta el codigo y que confirma el envio de la constancia. Si queda
+sin confirmar, revisar la pantalla y el correo antes de repetir la solicitud.

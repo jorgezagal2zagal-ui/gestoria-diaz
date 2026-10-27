@@ -6,3 +6,5 @@ __pycache__/
 /.gestoria-datos/
 /outlook_bot/registros/
 /.datos_conexion/
+/.venv/
+/.entorno.lock

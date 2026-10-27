@@ -1,0 +1,29 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Bandeja simulada para pruebas locales</title>
+<style>body{font:16px Arial;display:flex;gap:20px;padding:20px} [role=listbox]{width:360px} [role=option]{border:1px solid #aaa;padding:16px;cursor:pointer} [role=article]{border:1px solid #555;padding:20px;width:500px} iframe{height:150px;border:0}</style>
+<div role="listbox" aria-label="Lista de mensajes"></div><section role="article" data-item-id="none"><header></header><h2></h2><div class="content"></div></section>
+<script>
+const messages = new Map();
+window.addMessage = (id, subject, sender, code, date, options={}) => {
+ messages.set(id,{subject,sender,code,date,options});
+ let row=document.querySelector(`[data-row="${id}"]`);
+ if(!row){row=document.createElement('div');row.setAttribute('role','option');row.dataset.row=id;row.dataset.itemId=id;document.querySelector('[role=listbox]').prepend(row);}
+ row.textContent=subject+' · '+(options.preview||'Mensaje nuevo');
+ if(date)row.dataset.receivedDate=date;
+ row.onclick=()=>{
+  let pane=document.querySelector('[role=article]');
+  const render=()=>{
+   pane.dataset.itemId=id;pane.querySelector('header').replaceChildren();
+   let address=document.createElement(options.mailto?'a':'span');
+   if(options.mailto)address.href='mailto:'+sender;else address.setAttribute('email',sender);
+   address.textContent=sender;pane.querySelector('header').append(address);
+   if(date){let t=document.createElement('time');t.dateTime=date;pane.querySelector('header').append(t);}
+   pane.querySelector('h2').textContent=subject;
+   let body=pane.querySelector('.content');body.replaceChildren();
+   if(options.iframe){let f=document.createElement('iframe');f.srcdoc='<p>Tu código de validación es: <strong>'+code+'</strong></p>';body.append(f);}
+   else body.textContent='Tu código de validación es: '+code;
+  };
+  if(options.delay){if(!window.loading){window.loading=true;setTimeout(()=>{render();window.loading=false;},options.delay);}}else render();
+ };
+};
+addMessage('old','Código de validación','sender@provider.test','123456','2020-01-01T00:00:00Z');
+</script></html>

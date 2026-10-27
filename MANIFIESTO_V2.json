@@ -1,0 +1,41 @@
+{
+  "version": "2.0",
+  "respaldo_v1_sha256": "5834e563a1c227c1b8029142c3f853b6397b1af5294635c22816a6b9edcd1fd3",
+  "outlook_original": {
+    "outlook_bot/app.py": "16f0526d2ad78ff2b22555fd16821a39e12dffad06e05b4b9ea9db5d3d11ad15",
+    "outlook_bot/core.py": "e0bfd1c1e44f7e53de7b0239611d5676b396c5750b31783284bc2c185b7e69a7",
+    "outlook_bot/automation.py": "6248558221d5fe39c1168ee6c9c777904e5cb1a088e5fb2fc042f1480150def2",
+    "outlook_bot/history.py": "5780ddb1dbe49c8273525ad6a2c1cfd2a0adb838965c652fa2b0e915a189b1a1",
+    "outlook_bot/requirements.txt": "82e514f7ea7e2b6473ac9b754a1cd8a5fe53c3d1c32d236a5a0f12073c31ce61",
+    "outlook_bot/INICIAR.bat": "c852fed73a74dd9a046d5949d45ebae71af52fa60cb1f3c8a126a42a13714050",
+    "outlook_bot/LEEME.txt": "f04be7f5c9f889be3c6e903c318275af1447588a545752ddd54c522ac7b9ab91"
+  },
+  "validacion": "Ver VALIDACION_V2.txt: pruebas locales y bandejas simuladas; sin prueba real en Windows.",
+  "archivos": {
+    "DIAGNOSTICO.bat": "886578e9909542626fa9b8eee1c4211bd41460393f9a587710134aaa10023a06",
+    "INICIAR_IMSS.bat": "625ac83b6ff5cd74b8d00bbc55c0e280d877bb5239c0ccf7900f835ee22468bb",
+    "INICIAR_OUTLOOK_CONECTADO.bat": "4d25b2066169ce0cc3a2081897d0f012dac2122e23f91e2376f2ba6d19f7be61",
+    "INICIAR_TODO.bat": "a43b98a22237a098b5be13c553802a9675767b3755acd55d592177fa527da2c4",
+    "LEEME_CONECTADOS.txt": "67fb69f05116d41eee3109c65d50b5e8ac8a229eb8174c5c39c5dc8ec54325f8",
+    "VALIDACION_V2.txt": "d15c2833c11b997be2dc046a29df37ed61956ccab7af1da6c78c0af5de6f2ef9",
+    "conexion/__init__.py": "0179f38800bff8057e61b22f66d7ed1c962d13e5b2cbf2a68796a61f99110d5c",
+    "conexion/bridge.py": "8f4d0dfa5ea75f70acb3c5e612bbf9a3139249c2a775f8fe2d1c5b9c8e2ab080",
+    "conexion/history.py": "51a90ba83b62f5bae046e92fba2d7021c079f87a0cb581164edd75f2afa1bbe8",
+    "conexion/imss_link.py": "ee92c8a04a3292406e1b51148e143da2c620eb9c4dde94ab07af709c278dbdb0",
+    "conexion/locking.py": "fa6e43dec7836de9cc2e8a73b8a56194c6348eea4892d59203801277025723fe",
+    "conexion/reader.py": "05c21d5bbdb1d495a7190c2b8941600fc5bc86ecb33595479227ecdd4922ec87",
+    "diagnostico_conexion.py": "6924f1e6a3c620603725e01df45c327bd989c93ff63e3ec781c71cd86dc45c98",
+    "gestoria_5_instancias.py": "bc53a13f6484f4807c66e17928d98f8ed6db3cc9e726c1b939a8e5768a42a333",
+    "outlook_bot/INICIAR.bat": "c852fed73a74dd9a046d5949d45ebae71af52fa60cb1f3c8a126a42a13714050",
+    "outlook_bot/LEEME.txt": "f04be7f5c9f889be3c6e903c318275af1447588a545752ddd54c522ac7b9ab91",
+    "outlook_bot/app.py": "16f0526d2ad78ff2b22555fd16821a39e12dffad06e05b4b9ea9db5d3d11ad15",
+    "outlook_bot/automation.py": "6248558221d5fe39c1168ee6c9c777904e5cb1a088e5fb2fc042f1480150def2",
+    "outlook_bot/core.py": "e0bfd1c1e44f7e53de7b0239611d5676b396c5750b31783284bc2c185b7e69a7",
+    "outlook_bot/history.py": "5780ddb1dbe49c8273525ad6a2c1cfd2a0adb838965c652fa2b0e915a189b1a1",
+    "outlook_bot/requirements.txt": "82e514f7ea7e2b6473ac9b754a1cd8a5fe53c3d1c32d236a5a0f12073c31ce61",
+    "outlook_conectado.py": "db5ad58b9557753a699269d151ea8335797b2edc4b3e7214d6712af2973721eb",
+    "preparar_entorno.py": "cee8700303ca9637c68950f6bfa4a6c815d1e87f7e57a9db7dc62fd6f2004c1c",
+    "respaldos/GESTORIA_DIAZ_CONECTADOS_V1_RESPALDO.zip": "5834e563a1c227c1b8029142c3f853b6397b1af5294635c22816a6b9edcd1fd3",
+    "respaldos/LEEME_RESPALDO.json": "e7915052eb09b43e4a5764f766e93dc1dd67c05c0bfe6281ee3a2e76ad72404c"
+  }
+}

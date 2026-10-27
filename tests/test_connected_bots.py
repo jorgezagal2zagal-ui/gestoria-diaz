@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 from conexion.bridge import Bridge, read_json, write_json
 from conexion.imss_link import ImssConnection
+from conexion.history import RequestHistory
 from conexion.reader import OutlookReader, ROW, PANE, extract_code
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -59,6 +60,7 @@ class Row:
     def is_displayed(self): return True
     def get_attribute(self,name): return self.key if name=='data-item-id' else None
     def click(self): pass
+    def find_elements(self,by,selector): return []
 
 
 class Pane(Row):
@@ -157,6 +159,7 @@ class WorkflowTests(unittest.TestCase):
             app.usados_sesion=set();app.pendiente=None;app.resultado_tramite=False
             client=ImssConnection.__new__(ImssConnection)
             client.app=app;client.bridge=bridge;client.active=True;client.cancel=FastEvent();client.job=None;client.rejected=False;client.reset_ready=False
+            client.history=RequestHistory(folder)
             def lookup(path,curp,email,instance,procedure):
                 self.assertIn(bridge.response(client.job)['status'],('ready','code'))
                 app.pendiente=(path,'1',instance,curp,email,procedure)
@@ -192,6 +195,7 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(fake_reader.baseline.call_count,3)
             for driver in drivers: driver.quit.assert_called_once()
             self.assertEqual(list(Path(folder).glob('solicitudes/*/response.json')),[])
+            self.assertEqual(sorted(r['resultado'] for r in client.history.rows()),['completada','rechazado','rechazado'])
 
     def test_navigation_acknowledges_error_then_cancels_only_the_code_screen(self):
         app=bot.App.__new__(bot.App)
@@ -214,6 +218,7 @@ class WorkflowTests(unittest.TestCase):
         app.usados_sesion=set();app.pendiente=None;app.resultado_tramite=False
         connection=ImssConnection.__new__(ImssConnection)
         connection.app=app;connection.bridge=Bridge(folder);connection.active=True
+        connection.history=RequestHistory(folder)
         connection.cancel=threading.Event();connection.job=None
         connection.rejected=False;connection.reset_ready=False
         emails=[f'example{i}@example.test' for i in range(5)]

@@ -521,7 +521,7 @@ def error_codigo_rechazado(nodos):
 
 def tramite_confirmado(texto):
     texto = texto_normalizado(texto)
-    if re.search(r'\b(?:error|fallo|fallido|fallida)\b|\bno (?:se|ha|fue|pudo)\b', texto):
+    if re.search(r'\b(?:error|fallo|fallido|fallida|procesando|pendiente)\b|\bno (?:se|ha|fue|pudo)\b|sera enviad|se enviara', texto):
         return False
     return bool(re.search(r'(?:constancia|documento|informacion solicitada).{0,180}(?:enviado|enviada|enviamos|envio).{0,120}correo', texto)
                 or re.search(r'(?:enviamos|se envio|se ha enviado).{0,120}(?:constancia|documento).{0,120}correo', texto))
@@ -1345,6 +1345,9 @@ class App:
         self.resultado_tramite = False
         if conexion_cancelada(self):
             return
+        connection = self.__dict__.get('conexion')
+        if connection and connection.active:
+            connection.tramite_started()
         encontrado = tocar_texto(path, idx, TRAMITES[tramite], 5)
         if not encontrado:                       # p. ej. NSS está dentro del menú > Tramita
             nodos = pantalla(path, idx)
@@ -1358,6 +1361,7 @@ class App:
             self.emit(f'⚠ No encontré el botón de "{tramite}". Captura: {foto.name}')
             return
         # seguir dando CONTINUAR / ENVIAR A TU CORREO hasta que IMSS confirme
+        confirmacion = ''
         for _ in range(6):
             time.sleep(3)
             if conexion_cancelada(self):
@@ -1366,14 +1370,25 @@ class App:
             txt = todo_texto(nodos)
             if txt:
                 self.emit(f'   IMSS: {txt[:180]}')
+            if tramite_confirmado(txt):
+                confirmacion = txt
+                break
             boton = (buscar_texto(nodos, r'enviar a tu correo') or buscar_texto(nodos, r'^continuar$')
                      or buscar_texto(nodos, r'^aceptar$'))
             if boton:
                 tocar(path, idx, boton['xy'])
                 continue
             break
-        time.sleep(2)
-        txt = todo_texto(pantalla(path, idx))
+        # Conservar la confirmación antes de que un ACEPTAR cierre el aviso.
+        txt = confirmacion
+        if not confirmacion:
+            for _ in range(8):
+                if conexion_cancelada(self):
+                    return
+                time.sleep(2)
+                txt = todo_texto(pantalla(path, idx))
+                if tramite_confirmado(txt) or re.search(r'\berror\b|no se pudo', texto_normalizado(txt)):
+                    break
         foto = self.foto(path, idx, f'{curp}_{CORTO.get(tramite, "tramite")}.png')
         self.resultado_tramite = tramite_confirmado(txt)
         if self.resultado_tramite:
