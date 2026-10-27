@@ -24,6 +24,7 @@ class Driver:
         self.address = email
         self.owner = threading.get_ident()
         self.closed = False
+        self.refreshes = 0
         self.current_url = "https://outlook.live.com/mail/0/inbox"
 
     def set_page_load_timeout(self, timeout):
@@ -36,6 +37,10 @@ class Driver:
         assert self.owner == threading.get_ident()
         self.closed = True
 
+    def refresh(self):
+        assert self.owner == threading.get_ident()
+        self.refreshes += 1
+
 
 with tempfile.TemporaryDirectory() as tmp:
     bridge = Bridge(tmp)
@@ -46,6 +51,8 @@ with tempfile.TemporaryDirectory() as tmp:
     baseline = threading.Barrier(3)
 
     def login(account, *args):
+        if "--first-fails" in sys.argv and account.address == "a0@example.test":
+            raise RuntimeError("Synthetic first login failure")
         driver = Driver(account.address)
         drivers.append(driver)
         return driver
@@ -57,6 +64,12 @@ with tempfile.TemporaryDirectory() as tmp:
             self.driver = driver
 
         def baseline(self):
+            if "--reader-fails" in sys.argv:
+                if self.driver.address == "a0@example.test":
+                    raise RuntimeError(
+                        "No se pudo reconocer la lista de mensajes; IMSS no se iniciará."
+                    )
+                return
             baseline.wait(4)
 
         def scan(self, at):
@@ -101,9 +114,19 @@ with tempfile.TemporaryDirectory() as tmp:
         root = tk.Tk()
         app = imss.App(root, outlook_factory=unified.OutlookSection)
         panel = ParallelPanel(app)
+        if "--reader-fails" in sys.argv:
+            execute = panel.runner.execute
+
+            def fast_baseline(item):
+                panel.engine.snapshot["baseline_timeout"] = 0.01
+                return execute(item)
+
+            panel.runner.execute = fast_baseline
         app.outlook.accounts = [
             SimpleNamespace(address=f"a{i}@example.test", password="synthetic")
-            for i in range(3)
+            for i in range(
+                4 if "--first-fails" in sys.argv or "--reader-fails" in sys.argv else 3
+            )
         ]
         app.outlook.publish()
         app.outlook.email.set("a0@example.test")
@@ -139,7 +162,9 @@ with tempfile.TemporaryDirectory() as tmp:
                     assert len(codes) == 3
                     assert len({v[1] for v in codes}) == 3
                     assert len({v[2] for v in codes}) == 3
-                    assert len(drivers) == 3, "No reutilizó la bandeja preabierta"
+                    assert len(drivers) == (4 if "--reader-fails" in sys.argv else 3), (
+                        "No reutilizó la bandeja preabierta"
+                    )
                     assert all(d.closed for d in drivers)
                     assert (
                         app.outlook_panel.winfo_ismapped()

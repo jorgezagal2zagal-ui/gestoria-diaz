@@ -142,20 +142,16 @@ class OutlookSection(OutlookWorker):
             return
         preferred = self.connection.preferred_email.get().casefold()
         excluded = self.bridge.excluded_emails()
-        account = (
-            next((a for a in self.accounts if a.address.casefold() == preferred), None)
-            if preferred
-            else next(
-                (a for a in self.accounts if a.address.casefold() not in excluded), None
-            )
-        )
-        if account is None:
+        accounts = [a for a in self.accounts if a.address.casefold() not in excluded]
+        if preferred:
+            accounts.sort(key=lambda a: a.address.casefold() != preferred)
+        if not accounts:
             self.status.set("No quedan cuentas disponibles. Elige otra cuenta.")
             return
         self.job_cancel.clear()
         self.mailbox_opening.set()
         self.status.set("Abriendo Outlook; IMSS permanece independiente.")
-        self.commands.put(("open", account))
+        self.commands.put(("open_accounts", tuple(accounts[:3])))
 
     def stop_mailbox(self):
         if self.connection.active:
@@ -191,7 +187,7 @@ class OutlookSection(OutlookWorker):
         self.discard_mailbox()
         return super().open_account(account, browsers, cancelled, report)
 
-    def prepare_mailbox(self, account):
+    def prepare_mailbox(self, account, manage_opening=True):
         from automation import (
             available_browsers,
             RateLimited,
@@ -224,6 +220,7 @@ class OutlookSection(OutlookWorker):
             )
             self._post(lambda: self._account_status(account.address, "Bandeja abierta"))
             report("Bandeja lista. Ya puedes iniciar el trámite IMSS.")
+            return "ready"
         except RateLimited:
             self.accepting = False
             self._record_result(
@@ -231,6 +228,7 @@ class OutlookSection(OutlookWorker):
             )
             report("Microsoft limita solicitudes; Outlook se ha detenido.")
             self.discard_mailbox()
+            return "limited"
         except VerificationRequired:
             self.bridge.email_failed(account.address, "verification", 3600)
             self._record_result(
@@ -240,12 +238,14 @@ class OutlookSection(OutlookWorker):
             )
             report("Se requiere verificación adicional. Elige otro correo.")
             self.discard_mailbox()
+            return "error"
         except SkipRequested:
             self._record_result(
                 account.address, "Omitido", "Apertura detenida por el usuario"
             )
             report("Apertura detenida.")
             self.discard_mailbox()
+            return "cancelled"
         except Exception:
             self.bridge.email_failed(account.address, "login", 600)
             self._record_result(
@@ -253,8 +253,10 @@ class OutlookSection(OutlookWorker):
             )
             report("No se pudo abrir la bandeja. Revisa la cuenta.")
             self.discard_mailbox()
+            return "error"
         finally:
-            self.mailbox_opening.clear()
+            if manage_opening:
+                self.mailbox_opening.clear()
 
     def listen(self):
         # Only this worker owns Selenium drivers, including manual mailbox actions.
@@ -269,6 +271,39 @@ class OutlookSection(OutlookWorker):
                     self._post(lambda: self.active_email.set("Outlook cerrado."))
                 elif command == "open":
                     self.prepare_mailbox(account)
+                elif command == "open_accounts":
+                    try:
+                        for number, candidate in enumerate(account, 1):
+                            if self.shutdown.is_set() or self.job_cancel.is_set():
+                                break
+                            self._post(
+                                lambda n=number: self.status.set(
+                                    f"Abriendo bandeja: intento {n}/3"
+                                )
+                            )
+                            result = self.prepare_mailbox(
+                                candidate, manage_opening=False
+                            )
+                            if result == "ready":
+
+                                def select(address=candidate.address):
+                                    self.email.set(address)
+                                    self.connection.preferred_email.set(
+                                        address.casefold()
+                                    )
+
+                                self._post(select)
+                                break
+                            if result in ("limited", "cancelled"):
+                                break
+                        else:
+                            self._post(
+                                lambda: self.status.set(
+                                    "No se pudo abrir la bandeja tras los intentos disponibles. Revisa el registro y las cuentas."
+                                )
+                            )
+                    finally:
+                        self.mailbox_opening.clear()
                 elif command == "connected":
                     server, request = account
                     opener = server.open_account

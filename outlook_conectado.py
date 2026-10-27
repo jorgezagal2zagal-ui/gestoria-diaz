@@ -110,7 +110,9 @@ class OutlookWorker:
                 expected_curp=request.get("curp", ""),
             )
             special = SpecialPages(driver, cancelled, report)
-            baseline_deadline = time.monotonic() + 10
+            baseline_timeout = self.__dict__.get("baseline_timeout", 10)
+            baseline_deadline = time.monotonic() + baseline_timeout
+            baseline_refreshed = False
             while True:
                 if cancelled():
                     raise SkipRequested()
@@ -119,11 +121,22 @@ class OutlookWorker:
                     break
                 except RuntimeError:
                     if time.monotonic() >= baseline_deadline:
-                        raise
+                        if baseline_refreshed:
+                            raise
+                        if cancelled():
+                            raise SkipRequested()
+                        report(
+                            "La bandeja abrió pero el lector no está listo; actualizando esta misma cuenta una vez."
+                        )
+                        driver.refresh()
+                        baseline_refreshed = True
+                        baseline_deadline = time.monotonic() + baseline_timeout
                     report(
                         "Esperando que Outlook termine de cargar su lista de mensajes."
                     )
-                    self.job_cancel.wait(1)
+                    self.job_cancel.wait(
+                        min(0.25, max(0.001, baseline_deadline - time.monotonic()))
+                    )
             self.bridge.reply(key, "ready")
             report("Bandeja lista; esperando que IMSS solicite el código.")
             notified = False
@@ -148,7 +161,7 @@ class OutlookWorker:
                             key,
                             "reader_error",
                             reason=reader_failure
-                            + " No se cambiará de cuenta automáticamente.",
+                            + " Se comprobará IMSS antes de intentar el siguiente correo.",
                         )
                         break
                     if special.handle() is not None:
@@ -251,7 +264,8 @@ class OutlookWorker:
                 key,
                 "reader_error" if inbox_opened else "error",
                 reason=(
-                    reader_failure + " No se cambiará de cuenta automáticamente."
+                    reader_failure
+                    + " Se intentará el siguiente correo de forma acotada."
                     if inbox_opened
                     else "No se completó el inicio de sesión de Outlook."
                 ),

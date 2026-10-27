@@ -1,40 +1,37 @@
-GESTORIA DIAZ V6 - HASTA TRES SOLICITUDES A LA VEZ
+GESTORIA DIAZ V6.1 - REINTENTOS AUTOMATICOS Y TRES SOLICITUDES
 
-1. Cierra la version anterior. Extrae TODO el ZIP en una carpeta nueva.
-2. Abre ABRIR_BOT.bat.
-3. Carga las cuentas en Outlook: TXT con correo:contrasena por linea.
-4. Revisa ldconsole.exe y elige al menos 3 instancias para trabajar tres a la vez.
-5. En A la vez elige 1, 2 o 3; en Instancia deja Automatica.
-6. Escribe CURP y tramite, pulsa AGREGAR / INICIAR. Puedes seguir agregando CURP
-   mientras trabajan las anteriores. El campo se limpia al anadirla a la cola.
+Cierra la version anterior. Extrae TODO el ZIP y abre ABRIR_BOT.bat.
+Carga las cuentas TXT (correo:contrasena por linea), revisa ldconsole.exe y elige
+las instancias. Para tres solicitudes a la vez necesitas tres instancias y tres
+cuentas disponibles distintas. Deja Instancia en Automatica y A la vez en 3.
+Introduce cada CURP y tramite con AGREGAR / INICIAR; puedes seguir agregando
+mientras las otras trabajan. Tambien puedes importar la cola desde Lotes.
 
-Para tres solicitudes a la vez hacen falta tres instancias y tres cuentas
-DISPONIBLES distintas. Con menos recursos, las solicitudes esperan en la cola.
-Tambien puedes importar las CURP por TXT/CSV desde Lotes.
-Si prefieres una instancia concreta, seleccionarla reserva esa instancia para
-la solicitud; las otras que necesiten la misma esperaran.
+CAMBIO PRINCIPAL:
+Si falla la primera cuenta, continua automaticamente con la siguiente.
+Si el lector falla despues de abrir Outlook, actualiza una vez esa misma
+bandeja; si no funciona, intenta otro correo. Maximo tres correos por solicitud.
+Ya no espera a que pulses Detener seleccionada cuando falla el lector.
+Si ya pidio un codigo a IMSS, cancela ese codigo y confirma el formulario antes
+de cambiar de correo. Un estado IMSS desconocido se conserva en revision.
 
-Cada fila muestra su propio correo, instancia y estado. Selecciona la fila para
-ver el detalle o usar Detener seleccionada / Omitir correo seleccionado.
+Tras tres intentos fallidos registra la solicitud como no completada y sigue
+con las otras solicitudes que tengan correo e instancia disponibles.
+Una cuenta preferida ocupada o no disponible permite usar la siguiente libre.
+Si se acaban los correos, los pendientes se conservan: carga mas cuentas y usa
+Iniciar / reanudar desde Lotes. Si Microsoft limita el acceso, la cola se pausa.
+
+ABRIR BANDEJA tambien prueba hasta tres cuentas si alguna falla, y sincroniza
+la que logra entrar con IMSS. PREPARAR / ENCENDER funciona por separado.
+Cada fila conserva su propio correo, codigo, CURP, instancia y resultado.
+Selecciona una fila para ver el detalle, detenerla u omitir su correo.
 Detener todas conserva los pendientes. Pausar cola termina las que ya trabajan.
-Si detienes una despues de enviar algo a IMSS, revisa el resultado antes de repetir.
 
-Outlook prepara su bandeja mientras arranca Android. IMSS inicia su solicitud
-cuando ambos estan listos. El codigo se entrega solo a esa CURP, correo e instancia.
-Los movimientos y la deteccion de pantalla avanzan antes, pero siempre se
-comprueban los seis digitos y la confirmacion final de IMSS.
-Una cuenta abierta manualmente se reutiliza en el mismo hilo del navegador.
+La version reconoce el bloqueo concreto del lector que dejo V6 y puede recuperar
+esas solicitudes con intentos disponibles. Primero comprueba el formulario IMSS.
+Otros resultados inciertos permanecen en revision en Lotes; no se repiten solos.
+Los registros completos permanecen en Registro y Lotes.
 
-CORRECCION DE CAMBIO CONTINUO DE CUENTAS:
-Si falla el inicio de sesion, puede intentar otro correo, hasta 3 por solicitud.
-Si YA ABRIO LA BANDEJA y falla el lector, no lo trata como una contrasena mala:
-mantiene la bandeja abierta y muestra el motivo, sin saltar a otra cuenta.
-Selecciona esa fila y Detener seleccionada para liberarla. Revisa su estado
-antes de reanudarla desde Lotes; las otras solicitudes pueden continuar.
-
-Los dos bots conservan controles independientes. ABRIR BANDEJA no necesita CURP;
-PREPARAR / ENCENDER no necesita cuentas. El historial esta en Registro.
-La V5.1 completa esta en respaldos, con las versiones anteriores dentro.
-
-Se probo con servicios simulados. Falta verificar tu Windows/LDPlayer/Outlook
-real. Si tu PC trabaja mejor con menos carga, selecciona 1 o 2 simultaneas.
+Incluye V6 completa en respaldos y conserva las versiones anteriores dentro.
+Se probo con servicios simulados. Falta comprobar Windows, LDPlayer y Outlook
+reales. Puedes bajar A la vez a 1 o 2 si tu PC trabaja mejor con menos carga.

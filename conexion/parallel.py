@@ -69,12 +69,9 @@ class EmailLeases:
         with self.condition:
             while not cancelled():
                 blocked = set(excluded) | self.used() | self.excluded()
-                candidates = [
-                    e
-                    for e in pool
-                    if e.casefold() not in blocked
-                    and (not preferred or e.casefold() == preferred)
-                ]
+                candidates = [e for e in pool if e.casefold() not in blocked]
+                if preferred:
+                    candidates.sort(key=lambda e: e.casefold() != preferred)
                 if not candidates:
                     return None
                 for email in candidates:
@@ -101,9 +98,10 @@ class EmailLeases:
 
 
 class ConcurrentRunner:
-    def __init__(self, store, execute, notify=None):
+    def __init__(self, store, execute, notify=None, can_dispatch=None):
         self.store, self.execute = store, execute
         self.notify = notify or (lambda text: None)
+        self.can_dispatch = can_dispatch or (lambda: True)
         self.running = False
         self.capacity = 3
         self.pausing = threading.Event()
@@ -138,7 +136,7 @@ class ConcurrentRunner:
     def _work(self, instances):
         completed = queue.SimpleQueue()
         threads = {}
-        failures = 0
+        deferred = set()
         storage_failed = False
 
         def work(item):
@@ -163,21 +161,26 @@ class ConcurrentRunner:
                         self.notify(
                             f"Solicitud {item['id']}: {state} · {result.reason}"
                         )
-                        failures = 0 if state == "completada" else failures + 1
                         if (
-                            result.status in ("limited", "stopped", "sin_correos")
-                            or failures >= 3
+                            result.status in ("sin_correos", "stopped")
+                            and state == "pendiente"
                         ):
+                            deferred.add(item["id"])
+                        if result.status == "limited":
                             self.pausing.set()
                             self.store.set_pause(
                                 result.reason
-                                or "Tres solicitudes sin completar. Revisa los resultados."
+                                or "Microsoft limita solicitudes; cola pausada."
                             )
                 except queue.Empty:
                     pass
                 if not self.stopping.is_set() and not self.pausing.is_set():
                     while len(threads) < self.capacity:
-                        item = self.store.claim(instances, capacity=3)
+                        if not self.can_dispatch():
+                            break
+                        item = self.store.claim(
+                            instances, capacity=3, excluded_ids=deferred
+                        )
                         if item is None:
                             break
                         thread = threading.Thread(
@@ -196,7 +199,9 @@ class ConcurrentRunner:
                         )
                     elif self.store.counts()["pendiente"]:
                         self.store.set_pause(
-                            "Hay pendientes; revisa las instancias ocupadas o en revisión."
+                            "No quedan correos disponibles; carga más cuentas y reanuda la cola."
+                            if not self.can_dispatch() or deferred
+                            else "Hay pendientes; revisa las instancias ocupadas o en revisión."
                         )
                     break
                 self.wake.wait(0.15)
@@ -245,6 +250,17 @@ class JobEngine:
             lambda: app.usados_sesion.copy(), app.conexion.bridge.excluded_emails
         )
         self.provider_limited = threading.Event()
+
+    def has_mailboxes(self):
+        excluded = (
+            self.app.usados_sesion.copy()
+            | self.app.conexion.bridge.excluded_emails()
+            | set(self.snapshot.get("used", ()))
+        )
+        return not self.provider_limited.is_set() and any(
+            a.address.casefold() not in excluded
+            for a in self.snapshot.get("accounts", ())
+        )
 
     def cancel(self, item_id=None, skip=False):
         with self.lock:
@@ -323,8 +339,12 @@ class JobEngine:
             "" if item.get("intentos", 0) > 0 else item.get("preferido", "")
         )
         c.current_request_id = item.get("solicitud") or None
+        c.recover_previous_code = item.get("motivo", "").startswith(
+            "Recuperación del lector:"
+        )
         worker.conexion = c
         server = OutlookWorker()
+        server.baseline_timeout = self.snapshot.get("baseline_timeout", 10)
         server.shutdown = threading.Event()
         server.job_cancel = threading.Event()
         server.accepting = True
@@ -354,20 +374,6 @@ class JobEngine:
             done.setdefault(key, threading.Event()).set()
 
         server.on_job_finished = attempt_done
-        reader_failed = threading.Event()
-
-        def hold_failed(driver, email, reason):
-            reader_failed.set()
-            self.notify(
-                owner,
-                "lector_no_listo",
-                reason + " · Detener seleccionada para liberar esta solicitud.",
-            )
-            while not c.cancel.wait(0.2) and not server.shutdown.is_set():
-                pass
-            return False
-
-        server.hold_failed_inbox = hold_failed
 
         def claim(pool, excluded, preferred):
             if self.provider_limited.is_set():
@@ -477,13 +483,7 @@ class JobEngine:
                     "",
                 )
             result = c.last_result
-            if reader_failed.is_set():
-                result = replace(
-                    result,
-                    status="lector_no_listo",
-                    reason="Bandeja abierta, lector sin confirmar. Revisa la solicitud; no se cambió de cuenta.",
-                )
-            elif result.status == "detenida" and c.__dict__.get("user_stop"):
+            if result.status == "detenida" and c.__dict__.get("user_stop"):
                 result = replace(
                     result, status="sin_confirmar" if result.submitted else "cancelada"
                 )

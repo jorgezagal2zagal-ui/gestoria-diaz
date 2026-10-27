@@ -1,0 +1,43 @@
+V6.1 - RECUPERACION AUTOMATICA SIN BLOQUEO POR LA PRIMERA CUENTA
+
+205 pruebas de IMSS, lector, arranque, cola y concurrencia: aprobadas.
+31 pruebas del motor Outlook original: aprobadas.
+32 escenarios Chromium locales del lector y entrega de codigo: aprobados.
+Tres escenarios con panel Tk real y servicios simulados: aprobados.
+
+Se verifica el caso concreto de regresion: primera cuenta con error, siguiente
+cuenta correcta, solicitud completada sin pulsar Detener ni intervenir.
+Un fallo de lector actualiza una vez la misma bandeja antes de intentar otra.
+Los tres intentos de correo se contabilizan y se cierran sus navegadores.
+Tres fallos del lector terminan esa solicitud y permiten continuar la siguiente.
+Cuatro solicitudes fallidas tampoco detienen una quinta solicitud sana.
+
+Despues de pedir codigo, el cambio de correo exige volver al formulario IMSS
+por sus controles reconocidos. Si no se confirma, esa instancia queda en revision;
+no se repite una solicitud con resultado desconocido. Las otras pueden seguir.
+Una cuenta preferida ocupada o no disponible no impide seleccionar otra libre.
+Una solicitud sin correos no se reclama repetidamente ni pausa a las otras.
+Sin cuentas disponibles se conservan pendientes y se informa que hay que cargar mas.
+Microsoft Too Many Requests sigue pausando el acceso, sin cambiar de cuenta.
+
+La recuperacion de V6 solo afecta al estado y motivo exactos del bloqueo del
+lector, con uno o dos intentos consumidos. Conserva el presupuesto restante.
+Antes de reanudar, comprueba y cancela unicamente el codigo anterior reconocido;
+los resultados desconocidos de otros casos permanecen en revision.
+
+Panel Tk: flujo normal con tres solicitudes; primera cuenta de Outlook fallida;
+primer lector fallido. Se comprueban tres correos/instancias/codigos correctos,
+reutilizacion de bandeja en su hilo original y cierre de los navegadores.
+
+Reproducir:
+python -m unittest discover -s tests -v
+python -m unittest discover -s outlook_bot -p "test_*.py" -v
+PYTHONPATH=. python tests/browser_reader_check.py
+Con pantalla Tk: python tests/gui_parallel_check.py
+Con pantalla Tk: python tests/gui_parallel_check.py --first-fails
+Con pantalla Tk: python tests/gui_parallel_check.py --reader-fails
+python scripts/package_retry_v61.py
+
+Se comprueba el ZIP extraido y la copia V6 byte a byte. El motor Outlook original
+no se modifica. No se hicieron tramites reales ni se autentico en Microsoft.
+Falta comprobar esta version con Windows, LDPlayer y la bandeja real del usuario.

@@ -28,6 +28,7 @@ STATES = {
     "detenida": "Detenida",
     "limited": "Microsoft limita accesos",
     "stopped": "Conexión detenida",
+    "recuperando": "Reintentando con otro correo",
 }
 
 
@@ -36,6 +37,7 @@ class ParallelPanel:
         self.app = app
         self.connection = app.conexion
         self.store = self.connection.batch.store
+        recovered = self.store.recover_reader_blocks()
         self.events = queue.SimpleQueue()
         self.engine = JobEngine(
             app, lambda key, stage, text: self.events.put((key, stage, text))
@@ -44,6 +46,7 @@ class ParallelPanel:
             self.store,
             self.engine.execute,
             lambda text: self.connection.batch.events.put(("status", text)),
+            can_dispatch=self.engine.has_mailboxes,
         )
         self.connection.batch.runner = self.runner
         self.connection.parallel = self
@@ -54,6 +57,10 @@ class ParallelPanel:
         self.detail = tk.StringVar(
             value="Escribe una CURP y pulsa AGREGAR / INICIAR. Puedes añadir las siguientes mientras trabajan."
         )
+        if recovered:
+            self.detail.set(
+                f"{recovered} solicitudes recuperadas del bloqueo V6; se comprobará IMSS antes de reintentar."
+            )
         frame = tk.LabelFrame(
             app.imss_panel.master,
             text="SOLICITUDES SIMULTÁNEAS",
@@ -176,6 +183,7 @@ class ParallelPanel:
                 "timeout": self.connection.code_timeout.get(),
                 "accounts": tuple(self.app.outlook.accounts),
                 "stopping": self.runner.stopping,
+                "used": __import__("gestoria_5_instancias").correos_usados(),
             }
             self.connection.batch.snapshot = {
                 "path": path,

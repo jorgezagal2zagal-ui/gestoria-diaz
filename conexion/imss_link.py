@@ -507,6 +507,38 @@ class ImssConnection:
         budget = self.__dict__.get("current_max_attempts", 3)
         try:
             self.app.pendiente = None
+            if self.__dict__.get("recover_previous_code"):
+                ready = self.__dict__.get("preparation")
+                if ready and not ready():
+                    status = "emulador_no_listo"
+                    reason = "No se confirmó Android listo para recuperar el código anterior."
+                    self.state(
+                        "terminado",
+                        "Revisa el emulador antes de recuperar la solicitud",
+                        reason,
+                    )
+                    return
+                module = sys.modules[type(self.app).__module__]
+                info = module.listar(path).get(instance)
+                if not info or not self.return_to_login(path, info["index"]):
+                    status = "sin_confirmar"
+                    reason = "No se pudo confirmar el formulario tras el bloqueo anterior; revisar esta instancia."
+                    self.journal(
+                        request,
+                        curp,
+                        instance,
+                        procedure,
+                        0,
+                        "",
+                        "consulta",
+                        "sin_confirmar",
+                        reason,
+                    )
+                    self.state(
+                        "terminado", "No se pudo recuperar el código anterior", reason
+                    )
+                    return
+                self.recover_previous_code = False
             if self.app.__dict__.get("unified_mode") and not self.__dict__.get(
                 "preparation"
             ):
@@ -618,8 +650,12 @@ class ImssConnection:
                             else "fallida"
                         )
                         if ready["status"] == "reader_error":
-                            status = "lector_no_listo"
-                            break
+                            self.state(
+                                "recuperando",
+                                "Falló el lector; probando el siguiente correo",
+                                detail,
+                            )
+                            continue
                         if ready["status"] in ("limited", "stopped"):
                             status = ready["status"]
                             break
@@ -714,15 +750,26 @@ class ImssConnection:
                             else "fallida"
                         )
                         self.app.pendiente = None
-                        if response["status"] == "reader_error":
-                            status = "sin_confirmar"
-                            break
                         if response["status"] in ("limited", "stopped"):
                             status = response["status"]
                             break
+                        self.state(
+                            "recuperando",
+                            "Comprobando y cancelando el código anterior en IMSS",
+                            detail,
+                        )
                         if not self.return_to_login(path, pending[1]):
                             status = "sin_confirmar"
+                            outcome = "sin_confirmar"
+                            reason = attempt_reason = (
+                                "No se pudo cancelar el código anterior y confirmar el acceso. Revisa esta instancia antes de repetir."
+                            )
                             break
+                        self.state(
+                            "recuperando",
+                            "Se canceló el código anterior; probando otro correo",
+                            detail,
+                        )
                         continue
                     code = response.get("code", "")
                     if self.__dict__.get("skip") and self.skip.is_set():

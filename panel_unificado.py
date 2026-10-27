@@ -10,7 +10,7 @@ def main():
     app = imss.App(root, outlook_factory=OutlookSection)
     from conexion.parallel_ui import ParallelPanel
     ParallelPanel(app)
-    root.title("GESTORÍA DÍAZ V6 | HASTA 3 SOLICITUDES SIMULTÁNEAS")
+    root.title("GESTORÍA DÍAZ V6.1 | 3 SOLICITUDES · REINTENTOS AUTOMÁTICOS")
     root.mainloop()
 
 

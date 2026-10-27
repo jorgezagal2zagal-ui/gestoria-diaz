@@ -211,7 +211,7 @@ class BatchStore:
             args = ((status,) if status else ()) + (limit, max(0, offset))
             return [dict(row) for row in db.execute(query, args)]
 
-    def claim(self, instances, capacity=1):
+    def claim(self, instances, capacity=1, excluded_ids=()):
         if not instances or len(instances) > 5:
             raise ValueError("Elige de 1 a 5 instancias")
         with self.connect() as db:
@@ -240,6 +240,8 @@ class BatchStore:
                 for row in db.execute(
                     "SELECT * FROM jobs WHERE estado='pendiente' ORDER BY id"
                 ):
+                    if row["id"] in excluded_ids:
+                        continue
                     if row["curp"] in blocked_curps:
                         continue
                     assigned = row["instancia"] or (free[0] if free else "")
@@ -309,6 +311,17 @@ class BatchStore:
             return db.execute(
                 "UPDATE jobs SET estado='revision',motivo='Cierre inesperado; comprobar IMSS antes de repetir.',actualizada=? WHERE estado='en_curso'",
                 (utcnow(),),
+            ).rowcount
+
+    def recover_reader_blocks(self):
+        """Recover only the exact V6 reader hold, where no code was delivered."""
+        with self.connect() as db:
+            return db.execute(
+                "UPDATE jobs SET estado='pendiente',preferido='',motivo='Recuperación del lector: comprobar y cancelar únicamente el código anterior antes de reintentar.',actualizada=? WHERE estado='revision' AND intentos BETWEEN 1 AND 2 AND motivo=?",
+                (
+                    utcnow(),
+                    "Bandeja abierta, lector sin confirmar. Revisa la solicitud; no se cambió de cuenta.",
+                ),
             ).rowcount
 
     def resolve(self, item_id, action):

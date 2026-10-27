@@ -118,6 +118,7 @@ class Driver:
         self.audit = audit
         self.owner = threading.get_ident()
         self.closed = False
+        self.refreshes = 0
         self.current_url = "https://outlook.live.com/mail/0/inbox"
 
     def set_page_load_timeout(self, value):
@@ -129,6 +130,10 @@ class Driver:
     def quit(self):
         assert self.owner == threading.get_ident()
         self.closed = True
+
+    def refresh(self):
+        assert self.owner == threading.get_ident()
+        self.refreshes += 1
 
 
 class EngineTests(unittest.TestCase):
@@ -163,7 +168,12 @@ class EngineTests(unittest.TestCase):
             SimpleNamespace(address=f"a{i}@example.test", password="synthetic")
             for i in range(6)
         )
-        engine.snapshot = {"path": "console", "timeout": 60, "accounts": accounts}
+        engine.snapshot = {
+            "path": "console",
+            "timeout": 60,
+            "accounts": accounts,
+            "baseline_timeout": 0.01,
+        }
         items = [
             {
                 "id": i + 1,
@@ -255,7 +265,7 @@ class EngineTests(unittest.TestCase):
             self.assertEqual(engine.leases.owners, {})
             self.assertEqual(engine.contexts, {})
 
-    def test_reader_failure_keeps_inbox_without_rotating_and_other_job_completes(self):
+    def test_reader_failure_retries_another_account_without_blocking_other_job(self):
         with tempfile.TemporaryDirectory() as tmp:
             app, engine, items, events = self.fixture(tmp)
             drivers = []
@@ -307,27 +317,16 @@ class EngineTests(unittest.TestCase):
             ):
                 bad = executor.submit(engine.execute, items[0])
                 good = executor.submit(engine.execute, items[1])
-                try:
-                    self.assertEqual(good.result(5).status, "completada")
-                    deadline = time.monotonic() + 13
-                    while (
-                        not any(e[0] == 1 and e[1] == "lector_no_listo" for e in events)
-                        and time.monotonic() < deadline
-                    ):
-                        time.sleep(0.02)
-                    self.assertTrue(
-                        any(e[0] == 1 and e[1] == "lector_no_listo" for e in events)
-                    )
-                    self.assertFalse(bad.done())
-                    inbox = next(d for d in drivers if d.address == "a0@example.test")
-                    self.assertFalse(inbox.closed)
-                    self.assertEqual(received, ["a1@example.test"])
-                    self.assertEqual(
-                        sum(d.address == "a0@example.test" for d in drivers), 1
-                    )
-                finally:
-                    engine.cancel(1)
-                self.assertEqual(bad.result(5).status, "lector_no_listo")
+                self.assertEqual(good.result(5).status, "completada")
+                result = bad.result(5)
+                self.assertEqual(result.status, "completada")
+                self.assertEqual(result.attempts, 2)
+                inbox = next(d for d in drivers if d.address == "a0@example.test")
+                self.assertTrue(inbox.closed)
+                self.assertEqual(inbox.refreshes, 1)
+                self.assertNotIn("a0@example.test", received)
+                self.assertEqual(len(received), 2)
+                self.assertTrue(any(e[1] == "recuperando" for e in events))
             self.assertTrue(all(d.closed for d in drivers))
             self.assertEqual(engine.leases.owners, {})
 
