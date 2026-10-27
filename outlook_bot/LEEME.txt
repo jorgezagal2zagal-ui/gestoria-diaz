@@ -1,0 +1,30 @@
+GESTORIA DIAZ - OUTLOOK CON OMISION Y NAVEGADOR ALTERNATIVO
+
+1. Extrae TODO el ZIP en una carpeta.
+2. Instala Python 3.10 o superior y navegadores compatibles.
+3. Ejecuta INICIAR.bat. Necesita Internet para instalar Selenium y el
+   controlador oficial del navegador la primera vez.
+4. Importa tus cuentas (correo:contrasena) y pulsa INICIAR.
+
+Usa hasta DOS navegadores instalados por cuenta. Prioridad: Chrome, Edge,
+Firefox. Ejemplos: Chrome+Edge o Chrome+Firefox. Si solo tienes uno, solo
+puede hacer ese intento. Cada intento abre una sesion privada nueva.
+Si no puede usar contrasena, queda en una pantalla desconocida o vence la
+espera, cierra ese intento y prueba el otro navegador. Si ambos fallan,
+marca Omitido y pasa al siguiente correo de la lista.
+Cada pantalla tiene espera limitada; cada intento dispone de hasta150segundos
+ademas del arranque/instalacion del controlador. No sortea CAPTCHA ni
+verificaciones de Microsoft. Puedes completarlas manualmente durante la espera.
+
+OMITIR CORREO / SIGUIENTE: interrumpe la cuenta actual y avanza.
+DETENER: detiene la cola y cierra el navegador de este intento.
+Cuando abre Outlook correctamente, mantiene la bandeja abierta para que la uses.
+No lee ni envia mensajes. Para avanzar pulsa OMITIR CORREO / SIGUIENTE.
+Deten la cola para importar o quitar cuentas. INICIAR recorre la lista desde
+el principio. Los estados no se conservan al cerrar el panel.
+
+Las cuentas quedan en memoria. No se escriben contrasenas en archivos ni en
+mensajes de error. La tabla oculta contrasenas salvo que marques Mostrar.
+
+Validacion: pruebas simuladas de recuperacion y prueba real de la interfaz Tk.
+No se han probado cuentas reales de Microsoft ni navegadores Windows aqui.
