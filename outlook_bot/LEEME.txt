@@ -38,3 +38,6 @@ PANTALLAS RECUPERABLES
   de privacynotice.account.microsoft.com y continua hacia Outlook.
 - Password sign-in isn't available: cierra el intento, abre el navegador
   alternativo e intenta de nuevo. Si tambien falla, omite el correo.
+- Almost there / Just one more step to verify it's you: omite directamente
+  esa cuenta y pasa a la siguiente. No pide el codigo ni prueba otro navegador
+  para esa cuenta. En la tabla aparece Omitido: verificacion adicional.

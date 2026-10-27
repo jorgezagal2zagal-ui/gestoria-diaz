@@ -6,7 +6,7 @@ import os
 import shutil
 import threading
 import queue
-from automation import available_browsers, try_account, close_driver, LoginFailure, SkipRequested, RateLimited
+from automation import available_browsers, try_account, close_driver, LoginFailure, SkipRequested, RateLimited, VerificationRequired
 from core import parse_accounts, merge_accounts, Account
 
 class App(tk.Tk):
@@ -142,6 +142,8 @@ class App(tk.Tk):
                     self._post(lambda address=address: self._account_status(address, 'Finalizado'))
                 except SkipRequested:
                     self._post(lambda address=address: self._account_status(address, 'Omitido manualmente'))
+                except VerificationRequired:
+                    self._post(lambda address=address: self._account_status(address, 'Omitido: verificación adicional'))
                 except RateLimited:
                     limited = True
                     self._post(lambda address=address: self._account_status(address, 'Microsoft limita solicitudes'))

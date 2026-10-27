@@ -19,6 +19,10 @@ class RateLimited(LoginFailure):
     pass
 
 
+class VerificationRequired(LoginFailure):
+    pass
+
+
 def normalized(text):
     return ''.join(c for c in unicodedata.normalize('NFD', text.casefold())
                    if not unicodedata.combining(c))
@@ -131,6 +135,14 @@ class SpecialPages:
             raise SkipRequested()
         body = first_visible(self.driver, 'tag name', 'body')
         text = ' '.join(normalized(body.text).split()) if body else ''
+        verification_text = text.replace('’', "'")
+        if ('almost there' in verification_text
+                and urlsplit(self.driver.current_url).hostname in (
+                    'login.live.com', 'account.live.com', 'login.microsoftonline.com')
+                and any(marker in verification_text for marker in (
+                    "just one more step to verify it's you", 'send a code to', 'already have a code'))):
+            self.report('Verificación adicional: omitiendo esta cuenta y pasando a la siguiente.')
+            raise VerificationRequired('Microsoft solicita verificación adicional')
         if 'too many requests' in text:
             if self.refreshed:
                 raise RateLimited('Microsoft sigue limitando solicitudes. Intenta más tarde.')
@@ -287,6 +299,8 @@ def try_account(account, browsers, cancelled, report, attempt=None):
         except SkipRequested:
             raise
         except RateLimited:
+            raise
+        except VerificationRequired:
             raise
         except Exception:
             # Do not log Selenium exception strings: they can contain credentials.
