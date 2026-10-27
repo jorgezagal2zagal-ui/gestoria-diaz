@@ -480,6 +480,12 @@ def boton_cambio_dispositivo(nodos):
     return min(botones, key=lambda n: n['area']) if botones else None
 
 
+def error_codigo_rechazado(nodos):
+    return any(texto_normalizado(texto) == 'error al validar el codigo'
+               for n in nodos if n.get('visible', True) and n.get('area', 0) > 0
+               for texto in (n.get('valor', ''), n.get('descripcion', ''), n.get('texto', '')))
+
+
 def todo_texto(nodos):
     return ' | '.join(n['texto'] for n in nodos if n['texto']).lower()
 
@@ -1143,6 +1149,63 @@ class App:
         self.foto(path, idx, 'codigo_incompleto.png')
         return False
 
+    def cambiar_correo_tras_error(self, path, idx, nombre, curp, correo_fallido, tramite, nodos_error):
+        """Recuperación específica: aceptar error, cancelar código y usar otro correo."""
+        if not error_codigo_rechazado(nodos_error) or getattr(self, 'cambiando_correo', False):
+            return False
+
+        def visibles(nodos):
+            return [n for n in nodos if n.get('visible', True) and n.get('area', 0) > 0]
+
+        def boton(nodos, etiqueta):
+            opciones = [n for n in visibles(nodos) if n.get('enabled') and any(
+                texto_normalizado(texto) == etiqueta
+                for texto in (n.get('valor', ''), n.get('descripcion', ''), n.get('texto', '')))]
+            return min(opciones, key=lambda n: n['area']) if opciones else None
+
+        aceptar = boton(nodos_error, 'aceptar')
+        if not aceptar:
+            self.emit('⚠ No está disponible Aceptar en el aviso del código; no pude cambiar de correo.')
+            return False
+        siguiente = next((c for c in self.disponibles()
+                          if c.strip() and c.strip().casefold() != correo_fallido.strip().casefold()), None)
+        self.cambiando_correo = True
+        self.root.after(0, lambda: self.btn_consulta.configure(state='disabled'))
+        self.root.after(0, lambda: self.btn_codigo.configure(state='disabled'))
+        try:
+            tocar(path, idx, aceptar['xy'])
+            if siguiente is None:
+                self.emit('⚠ No quedan correos disponibles para cambiar. Carga otro TXT para continuar.')
+                return False
+            # El código rechazado pertenece al correo anterior: invalidarlo antes de volver.
+            self.pendiente = None
+            self.root.after(0, lambda: self.codigo.set(''))
+            self.events.put(('aviso', f'🔁 {nombre}: cambiando al siguiente correo disponible...'))
+            cancelado = False
+            for _ in range(12):
+                time.sleep(.5)
+                nodos = visibles(pantalla(path, idx))
+                if error_codigo_rechazado(nodos):
+                    continue
+                txt = texto_normalizado(todo_texto(nodos))
+                en_codigo = ('codigo de validacion' in txt or 'codigo de verificacion' in txt
+                             or bool(cajas_codigo_validacion(nodos)))
+                campos = [n for n in nodos if n.get('enabled')]
+                if not en_codigo and buscar(campos, 'txtCURP') and buscar(campos, 'txtCorreo'):
+                    self.emit('🔁 Error al validar el código: reinicio la misma consulta con el siguiente correo.')
+                    self._consulta(path, curp, siguiente, nombre, tramite)
+                    return True
+                if en_codigo and not cancelado:
+                    cancelar = boton(nodos, 'cancelar')
+                    if cancelar:
+                        tocar(path, idx, cancelar['xy'])
+                        cancelado = True
+            self.emit('⚠ No pude volver al formulario para cambiar de correo. Revisa la instancia y pulsa INICIAR.')
+            return False
+        finally:
+            self.cambiando_correo = False
+            self.root.after(0, lambda: self.btn_consulta.configure(state='normal'))
+
     def _codigo(self, codigo, path, idx, nombre, curp, correo, tramite):
         try:
             if not self.meter_codigo(path, idx, codigo):
@@ -1163,6 +1226,9 @@ class App:
                 time.sleep(2)
                 nodos = [n for n in pantalla(path, idx) if n.get('visible', True) and n.get('area', 0) > 0]
                 txt = todo_texto(nodos)
+                if error_codigo_rechazado(nodos):
+                    self.cambiar_correo_tras_error(path, idx, nombre, curp, correo, tramite, nodos)
+                    return
                 if re.search(r'error al validar|c[oó]digo (?:incorrecto|inv[aá]lido|expirado|vencido)', txt):
                     self.emit('✖ Error al validar el código. Usa el correo MÁS RECIENTE y vuelve a enviarlo.')
                     return

@@ -301,6 +301,7 @@ class CodeSubmissionTests(unittest.TestCase):
         app.pendiente = ('synthetic-pending',)
         app.hacer_tramite = Mock()
         app.meter_codigo = Mock(return_value=meter_ok)
+        app.cambiar_correo_tras_error = Mock(return_value=False)
         app.foto = Mock(return_value=Path('synthetic-code.png'))
         first = [node('Ingresa tu código de validación'), *cells('001177'),
                  verification_button(enabled), *decoynodes]
@@ -366,12 +367,16 @@ class CodeSubmissionTests(unittest.TestCase):
                 app.hacer_tramite.assert_called_once()
                 self.assertIsNone(app.pendiente)
 
-    def test_validation_error_or_unconfirmed_screen_keeps_pending_code(self):
+    def test_error_routes_to_email_rotation_and_unconfirmed_screen_keeps_pending(self):
         for status in ('error', 'pending'):
             with self.subTest(status=status):
                 app, _, _ = self.run_submission(status=status)
                 app.hacer_tramite.assert_not_called()
                 self.assertIsNotNone(app.pendiente)
+                if status == 'error':
+                    app.cambiar_correo_tras_error.assert_called_once()
+                else:
+                    app.cambiar_correo_tras_error.assert_not_called()
 
 
 if __name__ == '__main__':

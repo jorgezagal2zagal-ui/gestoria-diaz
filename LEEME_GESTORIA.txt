@@ -34,6 +34,12 @@ Comprueba los seis digitos escritos antes de pulsar Verificar. Si falta alguno,
 limpia las casillas ocupadas y repite una vez. Si aun no coincide o Verificar
 sigue desactivado, avisa y espera tu intervencion; no inicia el tramite.
 
+CAMBIO AUTOMATICO DE CORREO
+Si aparece "Error al validar el codigo", acepta el aviso, cancela esa validacion
+y reinicia la misma CURP, instancia y tramite con el siguiente correo disponible
+del TXT. Espera el codigo del correo nuevo para pegarlo en el bot. El codigo
+anterior se limpia. Si no quedan correos, avisa y se detiene.
+
 Al reducir la cantidad elegida se conservan las otras instancias existentes.
 La cantidad queda fija mientras se preparan las instancias.
 
