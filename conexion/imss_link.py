@@ -17,6 +17,7 @@ from .result import RequestResult
 
 STEPS = {
     "listo": 0,
+    "emuladores": 5,
     "outlook": 15,
     "consulta": 40,
     "codigo": 60,
@@ -306,7 +307,7 @@ class ImssConnection:
                 "No se pudo abrir el historial local. Revisa el permiso de escritura."
             )
             return
-        if self.active or self.app.busy:
+        if self.active or self.app.busy or self.app.__dict__.get('desbloqueando'):
             self.app.emit("Espera a que termine la operación actual.")
             return
         outlook = self.app.__dict__.get("outlook")
@@ -495,6 +496,14 @@ class ImssConnection:
         budget = self.__dict__.get("current_max_attempts", 3)
         try:
             self.app.pendiente = None
+            if self.app.__dict__.get('unified_mode'):
+                self.state('emuladores', 'IMSS: preparando la multiinstancia', instance)
+                if not self.app.preparar_solicitud(path, instance, self.cancel.is_set, self.cancel.wait):
+                    status = 'emulador_no_listo'
+                    reason = 'No se confirmó la instancia lista y desbloqueada. Revisa IMSS y PREPARAR / ENCENDER.'
+                    self.journal(request, curp, instance, procedure, 0, '', 'emuladores', 'fallida', reason)
+                    self.state('terminado', 'No se pudo preparar el emulador', reason)
+                    return
             for number in range(1, budget + 1):
                 if self.cancel.is_set():
                     return

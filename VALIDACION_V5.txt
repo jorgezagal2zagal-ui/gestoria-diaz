@@ -1,0 +1,28 @@
+V5 - ARRANQUE Y DOS MECANISMOS VISIBLES
+
+182 pruebas de IMSS, conexion, cola, lector y nuevo arranque: aprobadas.
+31 pruebas del motor original de Outlook: aprobadas.
+
+Dos pruebas con interfaz Tk real y servicios simulados:
+1. INICIAR TRAMITE sin preparacion previa enciende tres instancias y ejecuta
+   Outlook -> IMSS -> codigo -> confirmacion, usando el mismo correo.
+2. ABRIR BANDEJA sin CURP y PREPARAR / ENCENDER sin solicitud trabajan por
+   separado. Luego el tramite reutiliza la bandeja abierta: un solo login.
+Ambas comprueban dos secciones visibles en una ventana, sin configurar lector.
+
+Las pruebas de arranque cubren 1, 3 y 5 instancias, seleccion sin afectar las
+otras, PIN confirmado, PIN fallido sin repetir, cancelacion, ruta persistente,
+aviso de ruta invalida y fallo de emulador sin intentar ninguna cuenta.
+Se verifica que otra cuenta o un navegador cerrado no reutilicen una bandeja
+incorrecta, y que cerrar Outlook no detenga las instancias IMSS inactivas.
+
+Reproducir:
+python -m unittest discover -s tests -v
+python -m unittest discover -s outlook_bot -p "test_*.py" -v
+Con pantalla Tk: python tests/gui_simple_check.py
+Con pantalla Tk: python tests/gui_simple_check.py --independent
+python scripts/package_panel_v5.py
+
+Se verifican hashes del ZIP, integridad de la copia V4 y fuente original de
+Outlook. No se probaron los ejecutables .bat ni LDPlayer en Windows real.
+No se inicio sesion en Microsoft ni se tramito ninguna solicitud real del IMSS.

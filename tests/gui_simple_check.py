@@ -11,6 +11,17 @@ import automation
 from conexion.bridge import Bridge
 from history import HistoryStore
 
+independent = '--independent' in sys.argv
+instances = {f'GESTORIA_DIAZ_00{i}': {'index':str(i),'real':f'GESTORIA_DIAZ_00{i}',
+    'running':False,'android':False,'pid':'0'} for i in range(1,6)}
+launched = []
+def ldplayer(path,*args,**kwargs):
+    if args[0]=='launch':
+        launched.append(args[2])
+        next(v for v in instances.values() if v['index']==args[2]).update(
+            running=True,android=True,pid='100')
+    return ''
+
 with tempfile.TemporaryDirectory() as tmp:
     bridge = Bridge(tmp)
     fake_reader = Mock()
@@ -19,6 +30,7 @@ with tempfile.TemporaryDirectory() as tmp:
     fake_special = Mock()
     fake_special.handle.return_value = None
     driver = Mock()
+    driver.current_url = 'https://outlook.live.com/mail/0/inbox'
     with (
         patch.object(link, "Bridge", return_value=bridge),
         patch.object(unified, "Bridge", return_value=bridge),
@@ -28,6 +40,12 @@ with tempfile.TemporaryDirectory() as tmp:
             return_value=HistoryStore(Path(tmp) / "outlook.csv"),
         ),
         patch.object(bot.App, "monitor", return_value=None),
+        patch.object(bot, 'listar', side_effect=lambda path:dict(instances)),
+        patch.object(bot, 'reparar', side_effect=lambda *a:dict(instances)),
+        patch.object(bot, 'run', side_effect=ldplayer),
+        patch.object(bot, 'celular'),
+        patch.object(bot, 'adb', return_value='mKeyguardShowing=false'),
+        patch.object(bot, 'abrir_app'),
         patch.object(bot, "CARPETA", Path(tmp)),
         patch.object(bot, "USADOS", Path(tmp) / "used.csv"),
         patch.object(out, "try_account", return_value=driver) as login,
@@ -43,7 +61,8 @@ with tempfile.TemporaryDirectory() as tmp:
         console = Path(tmp) / "ldconsole.exe"
         console.touch()
         app.console.set(str(console))
-        app.curp.set("AAAA900101HDFBCD00")
+        if not independent:
+            app.curp.set("AAAA900101HDFBCD00")
         assert c.sender.get() == "" and c.subject.get() == ""
         o.email.set("chosen@example.test")
         o.password.set("synthetic")
@@ -80,9 +99,17 @@ with tempfile.TemporaryDirectory() as tmp:
                         w for w in root.winfo_children() if isinstance(w, tk.Toplevel)
                     ]
                     assert not o.start_button.winfo_ismapped()
-                    assert (
-                        o.choice.master.master.master.master is app.btn_consulta.master
-                    )
+                    assert app.outlook_panel.winfo_ismapped()
+                    assert app.imss_panel.winfo_ismapped()
+                    assert app.btn.winfo_ismapped()
+                    assert o.open_button.winfo_ismapped()
+                    assert list(app.tabs_unificados.tab(i,'text') for i in range(3)) == ['Outlook + IMSS','Registro','Lotes']
+                    assert launched == ['1','2','3'], launched
+                    assert login.call_count == 1
+                    if '--screenshot' in sys.argv:
+                        from PIL import ImageGrab
+                        root.update_idletasks()
+                        ImageGrab.grab().save('/workspace/.cloud-setup/v5-panel.png')
                     finished[0] = True
                     c.close_window()
                     return
@@ -94,7 +121,20 @@ with tempfile.TemporaryDirectory() as tmp:
                 return
             root.after(50, check)
 
-        root.after(10, app.consulta)
+        def start_independent():
+            assert not app.curp.get()
+            o.open_mailbox()
+            app.start()
+            def continue_when_ready():
+                if o.warm_driver is not None and not app.busy and not o.mailbox_opening.is_set():
+                    assert not c.active
+                    assert launched == ['1','2','3']
+                    app.curp.set('AAAA900101HDFBCD00')
+                    app.consulta()
+                elif time.monotonic()-start<10:
+                    root.after(50,continue_when_ready)
+            root.after(50,continue_when_ready)
+        root.after(10, start_independent if independent else app.consulta)
         root.after(100, check)
         root.mainloop()
         assert not errors, errors
@@ -105,5 +145,5 @@ with tempfile.TemporaryDirectory() as tmp:
         c.lock.release()
         o.process_lock.release()
 print(
-    "PANEL SIMPLE: sin configuracion ni pasos extra, un INICIAR, correo y CURP en el mismo formulario, flujo sincronizado OK"
+    "V5: dos bots visibles, apertura independiente y flujo sincronizado, arranque de 3 instancias y misma bandeja OK"
 )

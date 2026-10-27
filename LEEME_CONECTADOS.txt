@@ -1,23 +1,32 @@
-GESTORIA DIAZ V4 - PANEL UNICO SIMPLE
+GESTORIA DIAZ V5 - DOS BOTS EN UN MISMO PANEL
 
-1. Cierra la version anterior y extrae TODO este ZIP en una carpeta nueva.
+1. Cierra la version anterior. Extrae TODO el ZIP en una carpeta nueva.
 2. Abre ABRIR_BOT.bat.
-3. En Tramite escribe correo, contrasena y CURP; pulsa INICIAR.
-   Si ya cargaste la cuenta por TXT, basta elegirla: no repitas la contrasena.
 
-Outlook abre primero la bandeja. Luego IMSS inicia la solicitud con el mismo
-correo. El bot reconoce el mensaje nuevo del IMSS, lee el codigo y continua
-el tramite. NO pide configurar remitente, asunto ni copiar el codigo.
+Los DOS mecanismos estan visibles en Outlook + IMSS:
 
-La ruta de LDPlayer y la cantidad de instancias siguen en Instancias.
-Los registros se conservan en Registro y los lotes en Instancias.
-Los accesos INICIAR_TODO, INICIAR_IMSS e INICIAR_OUTLOOK_CONECTADO tambien
-abren este MISMO panel. No abras los programas de los respaldos a la vez.
+OUTLOOK: escribe correo y contrasena, o carga un TXT de cuentas.
+ABRIR BANDEJA funciona sin escribir CURP ni encender un emulador.
+Cerrar Outlook cierra su navegador; deja los emuladores encendidos.
+Si hay un tramite conectado en curso, cerrar Outlook tambien detiene su espera.
 
-Si IMSS rechaza el codigo, cambia al siguiente correo en ambos bots, hasta
-3 intentos. Si no puede confirmar el resultado, conserva el registro para revision.
-El respaldo V3 esta dentro de respaldos; incluye las copias V1/V2 anteriores.
+IMSS: revisa la ruta de ldconsole.exe y elige de 1 a 5 instancias.
+PREPARAR / ENCENDER funciona sin cargar cuentas ni iniciar Outlook.
+La ruta elegida se conserva para la siguiente vez.
+Si faltan instancias, debe existir tu instancia PLANTILLA para copiarlas.
 
-El reconocimiento automatico comprueba mensaje nuevo, contexto IMSS y codigo
-unico; si el mensaje menciona una CURP, debe corresponder a la solicitud activa.
-Se probo con datos simulados; falta comprobar tu Outlook y LDPlayer reales.
+FLUJO COMPLETO: escribe la CURP y pulsa INICIAR TRAMITE.
+Prepara las instancias si estan apagadas y confirma Android desbloqueado.
+Outlook abre la bandeja antes de que IMSS envie la solicitud.
+Si ya abriste la bandeja del mismo correo, aprovecha ese navegador.
+Lee el mensaje nuevo del IMSS y entrega el codigo a la instancia solicitante.
+No requiere configurar remitente ni asunto.
+
+Si IMSS rechaza el codigo, ambos bots cambian al siguiente correo, hasta
+tres intentos. Las pantallas desconocidas se detienen para revision.
+Los estados se muestran en cada seccion y en el progreso superior.
+Los historiales estan en Registro; la cola de solicitudes, en Lotes.
+
+El ZIP conserva la V4 completa en respaldos, con las versiones anteriores.
+El motor original de Outlook se conserva sin cambios.
+Se verifico con servicios simulados; falta probar Windows y LDPlayer reales.

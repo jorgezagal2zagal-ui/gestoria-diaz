@@ -24,6 +24,9 @@ from core import parse_accounts, merge_accounts
 
 
 class OutlookWorker:
+    def open_account(self, account, browsers, cancelled, report):
+        return try_account(account, browsers, cancelled, report)
+
     def listen(self):
         while not self.shutdown.wait(0.5):
             if not self.accepting:
@@ -89,7 +92,7 @@ class OutlookWorker:
             browsers = available_browsers()
             if not browsers:
                 raise RuntimeError("No hay navegador compatible instalado.")
-            driver = try_account(account, browsers, cancelled, report)
+            driver = self.open_account(account, browsers, cancelled, report)
             inbox_opened = True
             self.bridge.email_ready(email)
             driver.set_page_load_timeout(25)

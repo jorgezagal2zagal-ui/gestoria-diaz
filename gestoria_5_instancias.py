@@ -58,6 +58,27 @@ CARPETA = directorio_datos()
 USADOS = CARPETA / 'correos_usados.csv'
 
 
+def ruta_ldplayer():
+    """Recover the last chosen installation, then inspect common local paths."""
+    try:
+        saved = json.loads((CARPETA / 'ldplayer.json').read_text(encoding='utf-8'))
+        path = saved.get('console', '')
+        if isinstance(path, str) and path and Path(path).is_file():
+            return path
+    except (OSError, ValueError, AttributeError):
+        pass
+    candidates = [DEFAULT]
+    if sys.platform == 'win32':
+        for drive in ('D:', 'C:', 'E:'):
+            for version in ('LDPlayer14', 'LDPlayer9', 'LDPlayer4.0'):
+                candidates.append(drive + '\\LDPlayer\\' + version + '\\ldconsole.exe')
+        for base in (os.environ.get('ProgramFiles'), os.environ.get('ProgramFiles(x86)')):
+            if base:
+                candidates += [str(Path(base) / 'LDPlayer' / v / 'ldconsole.exe')
+                               for v in ('LDPlayer14', 'LDPlayer9')]
+    return next((p for p in candidates if Path(p).is_file()), DEFAULT)
+
+
 def preparar_datos():
     """Crear el almacén estable y conservar archivos de versiones anteriores."""
     CARPETA.mkdir(parents=True, exist_ok=True)
@@ -162,11 +183,13 @@ def celular(console, idx):
         '--cpu', '2', '--memory', '3072')
 
 
-def esperar_instancias(console, condicion, timeout=30):
+def esperar_instancias(console, condicion, timeout=30, cancelled=None):
     """Avanzar en cuanto LDPlayer confirme el estado; espera máxima limitada."""
     fin = time.monotonic() + timeout
     while True:
         instancias = listar(console)
+        if cancelled and cancelled():
+            return instancias
         if instancias and condicion(instancias):
             return instancias
         if time.monotonic() >= fin:
@@ -635,7 +658,8 @@ class App:
         self.iniciado = False     # esperar a que se elija cantidad y se pulse preparar
         self.cantidad_var = tk.StringVar(value=str(CANTIDAD))
         self.intentos_pin = {}
-        self.console = tk.StringVar(value=DEFAULT)
+        self.console = tk.StringVar(value=ruta_ldplayer())
+        self.preparando = threading.Event()
         self.arranque = {}        # nombre -> momento en que Android quedó listo
         self.enviados = {}        # nombre -> cuántas veces se mandó IMSS
         self.auto_on = True       # reponer instancias borradas
@@ -656,14 +680,21 @@ class App:
                 tabs = ttk.Notebook(root)
                 tabs.pack(fill='both',expand=True,padx=12,pady=8)
                 solicitud_parent = tk.Frame(tabs,bg=NEGRO)
-                instancias_parent = tk.Frame(tabs,bg=NEGRO)
                 registro_parent = tk.Frame(tabs,bg=NEGRO)
-                tabs.add(solicitud_parent,text='Trámite')
-                tabs.add(instancias_parent,text='Instancias')
+                lotes_parent = tk.Frame(tabs,bg=NEGRO)
+                tabs.add(solicitud_parent,text='Outlook + IMSS')
                 tabs.add(registro_parent,text='Registro')
+                tabs.add(lotes_parent,text='Lotes')
                 self.tabs_unificados = tabs
-                root = instancias_parent
-        tk.Label(root, text='1 · INSTANCIAS Y PREPARACIÓN', bg=NEGRO, fg=DORADO,
+                self.outlook_panel = tk.LabelFrame(solicitud_parent, text='1 · OUTLOOK — CORREO',
+                    bg=PANEL, fg=DORADO, font=('Segoe UI',11,'bold'), padx=12, pady=8)
+                self.outlook_panel.pack(fill='x',padx=16,pady=(6,8))
+                self.outlook = outlook_factory(self.outlook_panel,self.conexion)
+                self.imss_panel = tk.LabelFrame(solicitud_parent, text='2 · IMSS — INSTANCIAS Y TRÁMITE',
+                    bg=NEGRO, fg=DORADO, font=('Segoe UI',11,'bold'), padx=2,pady=4)
+                self.imss_panel.pack(fill='x',padx=16,pady=(0,8))
+                root = self.imss_panel
+        tk.Label(root, text='INSTANCIAS Y PREPARACIÓN', bg=NEGRO, fg=DORADO,
                  font=('Segoe UI', 11, 'bold'), anchor='w').pack(fill='x', padx=24, pady=(12, 4))
 
         fr = tk.Frame(root, bg=PANEL, padx=12, pady=10)
@@ -731,20 +762,14 @@ class App:
                        activeforeground=DORADO).pack(anchor='w')
 
         if self.unified_mode:
-            self.conexion.batch.controls(root)
+            self.conexion.batch.controls(lotes_parent)
 
         # ---- consulta IMSS
-        if self.unified_mode:
-            root = solicitud_parent
         cf = tk.Frame(root, bg=PANEL, padx=12, pady=10, highlightbackground=DORADO,
                       highlightthickness=1)
         cf.pack(fill='x', padx=24, pady=(14, 0))
         tk.Label(cf, text='INICIAR TRÁMITE' if self.unified_mode else '2 · SOLICITUD IMSS DIGITAL', bg=PANEL, fg=DORADO,
                  font=('Segoe UI', 11, 'bold')).grid(row=0, column=0, columnspan=4, sticky='w')
-        if self.unified_mode:
-            correo_parent = tk.Frame(cf,bg=PANEL)
-            correo_parent.grid(row=1,column=0,columnspan=4,sticky='ew',pady=8)
-            self.outlook = outlook_factory(correo_parent,self.conexion)
         tk.Label(cf, text='CURP del cliente', bg=PANEL, fg='white').grid(row=2, column=0, sticky='w', pady=5)
         self.curp = tk.StringVar()
         tk.Entry(cf, textvariable=self.curp, width=24, font=('Consolas', 12)).grid(
@@ -763,7 +788,7 @@ class App:
         boton_correos.grid(row=4, column=0, sticky='w', pady=4)
         self.info_correos = tk.Label(cf, text='Sin archivo de correos', bg=PANEL, fg=PLATA)
         self.info_correos.grid(row=4, column=1, columnspan=2, sticky='w', padx=6)
-        self.btn_consulta = tk.Button(cf, text='🔎 1. INICIAR', command=self.consulta,
+        self.btn_consulta = tk.Button(cf, text='▶ INICIAR TRÁMITE' if self.unified_mode else '🔎 1. INICIAR', command=self.consulta,
                                       bg=DORADO, fg='#111', font=('Segoe UI', 11, 'bold'),
                                       relief='flat', padx=14, pady=5)
         self.btn_consulta.grid(row=4, column=3, pady=4)
@@ -842,7 +867,19 @@ class App:
         if lote_activo(self):
             return self.conexion.batch.snapshot['path']
         p = self.console.get().strip().strip('"')
-        return p if Path(p).is_file() else None
+        if not p or not Path(p).is_file():
+            return None
+        try:
+            preparar_datos()
+            archivo = CARPETA / 'ldplayer.json'
+            data = json.dumps({'console': p}, ensure_ascii=False)
+            if not archivo.exists() or archivo.read_text(encoding='utf-8') != data:
+                temporal = archivo.with_suffix('.tmp')
+                temporal.write_text(data, encoding='utf-8')
+                temporal.replace(archivo)
+        except OSError:
+            pass
+        return p
 
     def poll(self):
         try:
@@ -889,9 +926,12 @@ class App:
         self.selector_cantidad.configure(state='disabled')
         threading.Thread(target=self.work, args=(path,), daemon=True).start()
 
-    def work(self, path):
+    def work(self, path, notify=True, cancelled=None):
         nombres = tuple(self.nombres)
+        cancelled = cancelled or (lambda: False)
         try:
+            if cancelled():
+                return False
             inst = reparar(path, self.emit, nombres)
             faltan = [n for n in nombres if n not in inst]
             for n in nombres:
@@ -909,16 +949,20 @@ class App:
                 if inst[plantilla]['running']:
                     self.emit('La plantilla está encendida; la apago para poder copiarla...')
                     run(path, 'quit', '--name', plantilla)
-                    detenido = esperar_instancias(path, lambda datos: plantilla in datos and not datos[plantilla]['running'])
+                    detenido = esperar_instancias(path, lambda datos: plantilla in datos and not datos[plantilla]['running'], cancelled=cancelled)
                     if not detenido or plantilla not in detenido or detenido[plantilla]['running']:
                         self.emit('La plantilla sigue encendida; no la copiaré mientras esté en uso.')
                         return
                 for n in faltan:
+                    if cancelled():
+                        return False
                     for intento in (1, 2):
+                        if cancelled():
+                            return False
                         self.estado(n, 'Copiando plantilla...', AMARILLO)
                         self.emit(f'➕ Creando {n} desde {plantilla} (intento {intento})')
                         run(path, 'copy', '--name', n, '--from', inst[plantilla]['index'], timeout=1800)
-                        if n in esperar_instancias(path, lambda datos: n in datos, timeout=15):
+                        if n in esperar_instancias(path, lambda datos: n in datos, timeout=15, cancelled=cancelled):
                             self.emit(f'   {n} creada')
                             break
                     else:
@@ -928,32 +972,102 @@ class App:
 
             # 2) encender las apagadas (una por una, después de terminar TODAS las copias)
             for n in nombres:
+                if cancelled():
+                    return False
                 if n in inst and not inst[n]['running']:
                     self.estado(n, 'Encendiendo...', AMARILLO)
                     self.emit(f'▶ Encendiendo {n} (modo celular 720x1280)')
                     celular(path, inst[n]['index'])
                     run(path, 'launch', '--index', inst[n]['index'])
-                    esperar_instancias(path, lambda datos: n in datos and datos[n]['running'], timeout=12)
+                    inst = esperar_instancias(path, lambda datos: n in datos and datos[n]['running'], timeout=12, cancelled=cancelled)
             # 3) revisar: reparar nombres perdidos y reintentar las que no prendieron
             inst = esperar_instancias(path, lambda datos: all(
-                n in datos and datos[n]['running'] and datos[n]['android'] for n in nombres), timeout=90)
+                n in datos and datos[n]['running'] and datos[n]['android'] for n in nombres), timeout=90, cancelled=cancelled)
             for n in nombres:
+                if cancelled():
+                    return False
                 if n in inst and not inst[n]['running']:
                     self.emit(f'↻ {n} no prendió, lo intento otra vez')
                     celular(path, inst[n]['index'])
                     run(path, 'launch', '--index', inst[n]['index'])
-                    esperar_instancias(path, lambda datos: n in datos and datos[n]['running'], timeout=12)
+                    inst = esperar_instancias(path, lambda datos: n in datos and datos[n]['running'], timeout=12, cancelled=cancelled)
+            for n in nombres:
+                info = inst.get(n)
+                if not info or not info['running']:
+                    self.estado(n, 'No se pudo encender; revisa el registro', ROJO)
+                elif info['android']:
+                    self.estado(n, 'Android encendido', VERDE)
+                else:
+                    self.estado(n, 'Esperando que Android arranque...', AMARILLO)
+            if not all(n in inst and inst[n]['running'] for n in nombres):
+                self.emit('No se pudieron encender todas las instancias elegidas. Revisa LDPlayer y la plantilla.')
+                self.events.put(('aviso', 'No se pudieron encender todas las instancias. Revisa el registro.'))
+                return False
             self.events.put(('aviso', '🔑 Android se desbloquea con el PIN configurado y después se abre IMSS Digital.'))
             self.emit('Preparación terminada. El monitor comprobará el PIN y abrirá IMSS Digital.')
+            return True
         except Exception as exc:
             self.emit(f'ERROR: {exc}')
         finally:
-            self.events.put(('done', None))
+            if notify:
+                self.events.put(('done', None))
+
+    def preparar_solicitud(self, path, nombre, cancelled, wait):
+        """Start the selected emulators without Outlook or main-thread UI access."""
+        self.preparando.set()
+        try:
+            self.iniciado = True
+            inst = listar(path)
+            if any(n not in inst or not inst[n]['running'] for n in self.nombres):
+                self.emit('Preparando las multiinstancias antes de iniciar el trámite...')
+                if not self.work(path, notify=False, cancelled=cancelled):
+                    self.emit('No se pudieron encender las instancias; revisa la ruta y la PLANTILLA.')
+                    return False
+            deadline = time.monotonic() + 150
+            while not cancelled() and time.monotonic() < deadline:
+                info = listar(path).get(nombre)
+                if info and info['android']:
+                    idx = info['index']
+                    out = adb(path, idx, 'shell', 'dumpsys', 'window', timeout=10)
+                    locked = estado_bloqueo_android(out)
+                    if locked is False:
+                        if cancelled():
+                            return False
+                        self.abrir_imss(path, nombre, idx, 'lista para el trámite')
+                        return True
+                    if locked is True:
+                        key = (idx, info['pid'])
+                        self.sesion[nombre] = key
+                        self.bloqueada[nombre] = True
+                        if self.intentos_pin.get(nombre) == key:
+                            self.emit(f'⚠ {nombre}: revisa el PIN o desbloquea Android manualmente.')
+                            return False
+                        self.intentos_pin[nombre] = key
+                        unlocked = desbloquear_android(path, idx, PIN_EMULADOR)
+                        if unlocked:
+                            self.intentos_pin.pop(nombre, None)
+                            self.bloqueada[nombre] = False
+                            if cancelled():
+                                return False
+                            self.abrir_imss(path, nombre, idx, 'PIN aceptado')
+                            return True
+                        if unlocked is None:
+                            self.intentos_pin.pop(nombre, None)
+                        else:
+                            self.emit(f'⚠ {nombre}: no se confirmó el desbloqueo de Android.')
+                            return False
+                if wait(1):
+                    return False
+            self.emit(f'⚠ {nombre}: Android no quedó listo a tiempo. Revisa el emulador.')
+            return False
+        finally:
+            self.preparando.clear()
 
     # ---------- eliminar y reemplazar
     def eliminar(self, nombre):
         path = self.ruta()
         if not path:
+            messagebox.showerror('Gestoría Díaz', 'No se encontró ldconsole.exe. Selecciónalo en la sección IMSS con Examinar.')
             return
         if self.busy or lote_activo(self):
             messagebox.showinfo('Gestoría Díaz', 'Espera a que el bot termine lo que está haciendo.')
@@ -1083,6 +1197,7 @@ class App:
         path = self.ruta()
         curp = self.curp.get().strip().upper()
         if not path:
+            messagebox.showerror('Gestoría Díaz', 'No se encontró ldconsole.exe. Selecciónalo en la sección IMSS con Examinar.')
             return
         if not re.fullmatch(r'[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d', curp):
             messagebox.showerror('Gestoría Díaz', 'La CURP no tiene un formato válido (18 caracteres).')
@@ -1506,6 +1621,11 @@ class App:
             time.sleep(2)
             if not self.iniciado:
                 continue
+            if self.__dict__.get('preparando') and self.preparando.is_set():
+                continue
+            connection = self.__dict__.get('conexion')
+            if connection and connection.active:
+                continue
             nombres = self.nombres
             path = self.ruta()
             if not path:
@@ -1528,6 +1648,8 @@ class App:
                 continue
             for n in nombres:
                 if not self.iniciado or nombres != self.nombres:
+                    break
+                if connection and connection.active:
                     break
                 try:
                     self.vigilar(path, n, inst.get(n))
@@ -1574,6 +1696,9 @@ class App:
         antes = self.bloqueada.get(n)
         self.bloqueada[n] = ahora
         if ahora:
+            connection = self.__dict__.get('conexion')
+            if connection and connection.active:
+                return
             if n in self.intentos_pin:
                 self.estado(n, '🔒 Revisa el PIN o desbloquea manualmente', AMARILLO)
                 return
