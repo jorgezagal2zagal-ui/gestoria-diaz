@@ -44,11 +44,21 @@ class ManualMailbox:
 class OutlookMailbox:
     started = None
 
-    def __init__(self, password, cancelled, timeout=180, login=None, reader_factory=OutlookReader):
+    def __init__(self, password, cancelled, timeout=180, login=None, reader_factory=OutlookReader, record=None):
         self.password, self.cancelled, self.timeout = password, cancelled, timeout
         self.login = login or automation.try_account
         self.reader_factory = reader_factory
         self.driver = self.reader = None
+        self.record = record or (lambda address, result, detail: None)
+        self.recorded = False
+
+    def outcome(self, job, result, detail):
+        if not self.recorded:
+            try:
+                self.record(job.email, result, detail)
+            except Exception:
+                raise FlowError("No se pudo guardar el resultado de Outlook. Revisa la carpeta de datos antes de continuar.") from None
+            self.recorded = True
 
     def prepare(self, job, report):
         if not self.password:
@@ -56,10 +66,12 @@ class OutlookMailbox:
         report("correo", "Abriendo Outlook antes de iniciar la solicitud IMSS.")
         browsers = automation.available_browsers()
         if not browsers:
+            self.outcome(job, "No logró entrar", "No se encontró un navegador compatible.")
             raise FlowError("Instala Chrome o Edge para leer Outlook automáticamente.")
         try:
             self.driver = self.login(Account(job.email, self.password), browsers, self.cancelled.is_set,
                                      lambda _msg: report("correo", "Esperando acceso a Outlook."))
+            self.outcome(job, "Entró a la bandeja", "Outlook confirmó el acceso a la bandeja de entrada.")
             self.password = ""
             self.reader = self.reader_factory(self.driver, cancelled=self.cancelled.is_set,
                                              expected_curp=job.curp,
@@ -81,15 +93,22 @@ class OutlookMailbox:
                         refreshed = True
                     self.cancelled.wait(.3)
             report("correo", "Bandeja lista. Continuando en IMSS con el mismo correo.")
-        except (Cancelled, FlowError):
+        except (Cancelled, automation.SkipRequested):
+            self.outcome(job, "Omitido", "Se detuvo el acceso antes de confirmar la bandeja.")
+            raise Cancelled("Acceso a Outlook detenido.") from None
+        except FlowError:
             raise
         except ImportError:
+            self.outcome(job, "No logró entrar", "Falta Selenium para iniciar el navegador.")
             raise FlowError("Falta Selenium. Ejecuta ABRIR_BOT.bat para instalar el lector.") from None
         except automation.RateLimited:
+            self.outcome(job, "Interrumpido", "Microsoft limita las solicitudes; esperar antes de volver a intentar.")
             raise FlowError("Microsoft limitó las solicitudes. Espera antes de volver a intentar; no se inició IMSS.") from None
         except automation.VerificationRequired:
+            self.outcome(job, "Omitido", "Microsoft solicita verificación adicional.")
             raise FlowError("Microsoft solicita verificación adicional. Completa el acceso manualmente o usa Código manual.") from None
         except Exception:
+            self.outcome(job, "No logró entrar", "No se completó el acceso a la bandeja.")
             raise FlowError("No se pudo abrir la bandeja de Outlook. Revisa las credenciales o usa Código manual.") from None
 
     def code(self, job, report):

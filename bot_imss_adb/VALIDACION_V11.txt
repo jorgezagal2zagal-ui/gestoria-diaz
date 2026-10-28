@@ -1,0 +1,31 @@
+VALIDACIÓN · BOT NUEVO IMSS ADB V1.1
+
+43 pruebas unitarias e integraciones locales: PASARON.
+Incluyen las 31 verificaciones de V1 más 12 pruebas de cuentas/exportaciones:
+formato TXT, duplicados, contraseñas en memoria, siguiente/omitidos, exportación
+sin contraseñas, clasificación por último resultado, migración de V1, archivos
+atómicos y exportación completa de 620 filas pese al límite visual de 500.
+También se verifica que un fallo IMSS no reclasifique un acceso Outlook exitoso.
+
+5 escenarios del panel Tk real con ADB/Outlook simulados: PASARON.
+- Importar, omitir, seleccionar siguiente y usar contraseña del catálogo.
+- Exportar las listas TXT y los historiales CSV desde el panel.
+- Conservar Entró a la bandeja aunque IMSS rechace el código.
+- Flujos automático, manual y fallo de correo de la versión anterior.
+
+1 integración del flujo nuevo con Chromium y lector reales: PASÓ.
+Correos y Android simulados. Verifica bandeja antes de IMSS, código nuevo,
+seis dígitos, tres trámites confirmados simulados y cierre de sesión.
+
+Lector y automatización base de Outlook conservados sin cambios de V1.
+Las 32 pruebas Chromium del lector de V1 siguen siendo evidencia de esa base;
+no se repitieron porque los archivos del lector son idénticos.
+
+Ruff (errores F), Git diff check, importación desde el ZIP extraído, manifiesto
+y respaldo V1 byte por byte: VERIFICADOS.
+
+LÍMITES
+No se probaron cuentas reales, Android/LDPlayer real ni una solicitud IMSS real.
+Semanas cotizadas conserva la limitación descrita en LEEME.txt: un portal externo
+o falta de confirmación requiere revisión manual. La omisión de cuentas desde
+la lista no intenta navegar ni repetir una solicitud IMSS que quedó pendiente.

@@ -1,4 +1,4 @@
-GESTORÍA DÍAZ · BOT NUEVO ADB V1
+GESTORÍA DÍAZ · BOT NUEVO ADB V1.1 · CUENTAS Y EXPORTACIONES
 
 Este es un programa independiente. No reemplaza el bot anterior ni comparte
 sus cuentas, historial, configuración, instancias o contraseñas.
@@ -16,6 +16,33 @@ INICIO EN WINDOWS
 6. Escribe CURP, correo y contraseña de Outlook. El PIN de Android es opcional;
    indícalo solo si tu instancia lo requiere. No se usa un PIN predeterminado.
 7. Elige los trámites y pulsa INICIAR SOLICITUD.
+
+CUENTAS Y EXPORTACIÓN (V1.1)
+- Cargar cuentas TXT acepta correo:contraseña (también Account: correo:contraseña),
+  una cuenta por línea. Solo correo sirve para el modo de código manual.
+- Añadir correo del formulario guarda la cuenta en memoria durante esta sesión.
+- Usar seleccionado carga ese correo para Outlook e IMSS. No necesitas volver
+  a escribir su contraseña si estaba en el TXT; la casilla puede estar vacía.
+- Siguiente correo elige otro del catálogo y excluye los omitidos en esta sesión.
+- Omitir seleccionado registra la omisión y, si era el correo del formulario,
+  selecciona el siguiente disponible. No inicia un nuevo trámite por sí solo.
+- Quitar del catálogo retira la cuenta de la memoria sin borrar su historial.
+- Las cuatro pestañas muestran Cargados, Entraron a la bandeja, Con inconvenientes
+  y Omitidos. Las tres últimas usan el resultado Outlook más reciente por correo.
+- EXPORTAR CORREOS / REGISTRO permite guardar:
+    * Lista de esta pestaña TXT: un correo por línea, de TODA esa lista.
+    * Todos los correos cargados TXT: direcciones del catálogo en memoria.
+    * Historial Outlook completo CSV: cada intento registrado, con fecha y detalle.
+    * Historial IMSS completo CSV: solicitudes y resultados de sus trámites.
+- Los TXT y CSV no incluyen contraseñas, PIN ni códigos de verificación.
+- Solo se muestran hasta 500 filas por pestaña para mantener ágil el panel;
+  las exportaciones incluyen todas las filas, sin ese límite.
+- Un error posterior del trámite IMSS no convierte un acceso exitoso a Outlook
+  en un correo que no entró. Son resultados independientes.
+- Durante una solicitud se bloquean los cambios de cuentas; puedes consultar
+  las listas y exportar. Para cambiar de correo, detén y revisa la sesión IMSS.
+- No se guardan automáticamente las contraseñas: vuelve a cargar tu TXT cuando
+  abras de nuevo el programa.
 
 FLUJO
 - Prueba ADB, Android e instalación de IMSS Digital.
@@ -54,10 +81,15 @@ Exportar registro guarda fecha, CURP, correo, dispositivo y resultado de cada
 solicitud/trámite. Son datos personales: elige una carpeta de tu confianza.
 No se guardan contraseñas, PIN, códigos ni cuerpos de los correos.
 Los datos están en %LOCALAPPDATA%\GestoriaDiazAdbNuevo.
+Los registros de solicitudes de V1 se conservan. El registro específico de
+Outlook empieza en V1.1: no se inventan resultados para intentos anteriores.
 Después de un cierre inesperado, una solicitud queda como interrumpida para
 revisión; no se repite automáticamente.
 
 PRUEBAS Y LÍMITES
-Consulta VALIDACION.txt. Las pruebas usan dispositivos/correos/pantallas
+Consulta VALIDACION_V11.txt. Las pruebas usan dispositivos/correos/pantallas
 simulados. No se ha ejecutado un trámite real en tu Windows o LDPlayer.
 Los controles de pantalla pueden variar entre versiones de IMSS/Android.
+
+RESPALDO
+Este ZIP incluye respaldos/BOT_DIAZ_IMSS_ADB_NUEVO_V1.zip sin modificar.

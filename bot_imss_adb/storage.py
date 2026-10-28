@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import tempfile
 import uuid
 
 try:
@@ -57,6 +58,30 @@ def now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+@contextmanager
+def atomic_text(path, encoding="utf-8-sig"):
+    target = Path(path)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding=encoding, newline="", dir=target.parent,
+                                         prefix=".export_", suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            yield stream
+        temporary.replace(target)
+    finally:
+        if temporary:
+            temporary.unlink(missing_ok=True)
+
+
+def spreadsheet_cell(value):
+    value = str(value)
+    return "'" + value if value.startswith(("=", "+", "-", "@", "\t", "\r")) else value
+
+
+MAIL_GROUPS = ("Entraron a la bandeja", "Con inconvenientes", "Omitidos")
+MAIL_RESULTS = ("Entró a la bandeja", "No logró entrar", "Omitido", "Interrumpido")
+
+
 class History:
     def __init__(self, folder):
         folder = Path(folder)
@@ -65,6 +90,7 @@ class History:
         self.path = folder / "solicitudes.sqlite3"
         with self.connect() as db:
             db.execute("CREATE TABLE IF NOT EXISTS solicitudes (id TEXT PRIMARY KEY, fecha TEXT, curp TEXT, correo TEXT, dispositivo TEXT, estado TEXT, detalle TEXT, tramites TEXT)")
+            db.execute("CREATE TABLE IF NOT EXISTS correos (id INTEGER PRIMARY KEY AUTOINCREMENT, fecha TEXT NOT NULL, correo TEXT NOT NULL, resultado TEXT NOT NULL, detalle TEXT NOT NULL)")
 
     @contextmanager
     def connect(self):
@@ -104,12 +130,35 @@ class History:
         with self.connect() as db:
             return db.execute("SELECT fecha,curp,correo,dispositivo,estado,detalle,tramites FROM solicitudes ORDER BY fecha DESC, rowid DESC LIMIT 500").fetchall()
 
+    def record_mail(self, address, result, detail):
+        if result not in MAIL_RESULTS:
+            raise ValueError("Resultado de correo desconocido.")
+        with self.connect() as db:
+            db.execute("INSERT INTO correos (fecha,correo,resultado,detalle) VALUES (?,?,?,?)", (now(), address, result, detail))
+
+    def mail_groups(self):
+        with self.connect() as db:
+            rows = db.execute("SELECT fecha,correo,resultado,detalle FROM correos WHERE id IN (SELECT MAX(id) FROM correos GROUP BY LOWER(correo)) ORDER BY id DESC").fetchall()
+        grouped = {category: [] for category in MAIL_GROUPS}
+        for row in rows:
+            category = MAIL_GROUPS[0] if row[2] == "Entró a la bandeja" else MAIL_GROUPS[2] if row[2] == "Omitido" else MAIL_GROUPS[1]
+            grouped[category].append(row)
+        return grouped
+
+    def export_mail(self, path):
+        if Path(path).resolve() == self.path.resolve():
+            raise ValueError("Elige un archivo CSV distinto de la base de datos.")
+        with self.connect() as db, atomic_text(path) as stream:
+            writer = csv.writer(stream)
+            writer.writerow(("Fecha UTC", "Correo", "Resultado Outlook", "Detalle"))
+            for row in db.execute("SELECT fecha,correo,resultado,detalle FROM correos ORDER BY id"):
+                writer.writerow([spreadsheet_cell(v) for v in row])
+
     def export(self, path):
-        def cell(value):
-            value = str(value)
-            return "'" + value if value.startswith(("=", "+", "-", "@", "\t", "\r")) else value
-        with Path(path).open("w", newline="", encoding="utf-8-sig") as stream:
+        if Path(path).resolve() == self.path.resolve():
+            raise ValueError("Elige un archivo CSV distinto de la base de datos.")
+        with self.connect() as db, atomic_text(path) as stream:
             writer = csv.writer(stream)
             writer.writerow(("Fecha UTC", "CURP", "Correo", "Dispositivo", "Estado", "Detalle", "Trámites"))
-            for row in self.recent():
-                writer.writerow([cell(v) for v in row])
+            for row in db.execute("SELECT fecha,curp,correo,dispositivo,estado,detalle,tramites FROM solicitudes ORDER BY fecha, rowid"):
+                writer.writerow([spreadsheet_cell(v) for v in row])

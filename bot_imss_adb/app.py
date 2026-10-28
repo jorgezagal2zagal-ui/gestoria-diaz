@@ -7,11 +7,15 @@ from tkinter import filedialog, messagebox, ttk
 
 try:
     from .adb import Adb, AdbError, Cancelled, find_adb
+    from .accounts import Account
+    from .accounts_ui import AccountsPanel
     from .flow import Flow, FlowError, Job
     from .mail_service import ManualMailbox, OutlookMailbox
     from .storage import History, data_dir, device_lock, load_config, save_config
 except ImportError:
     from adb import Adb, AdbError, Cancelled, find_adb
+    from accounts import Account
+    from accounts_ui import AccountsPanel
     from flow import Flow, FlowError, Job
     from mail_service import ManualMailbox, OutlookMailbox
     from storage import History, data_dir, device_lock, load_config, save_config
@@ -57,7 +61,7 @@ class App:
 
     def _build(self):
         root = self.root
-        root.title("GESTORÍA DÍAZ · BOT NUEVO ADB · V1")
+        root.title("GESTORÍA DÍAZ · BOT NUEVO ADB · V1.1 · CORREOS")
         root.geometry("1030x900")
         root.minsize(850, 680)
         root.configure(bg=BG)
@@ -108,7 +112,8 @@ class App:
         self.action(row, "Probar conexión ADB", self.probe, row=0, column=0)
         self.action(row, "Abrir IMSS Digital", self.open_imss, row=0, column=1, padx=8)
 
-        form = ttk.LabelFrame(body, text="2 · UNA SOLICITUD · EL MISMO CORREO", padding=12)
+        self.accounts_panel = AccountsPanel(self, body)
+        form = ttk.LabelFrame(body, text="3 · UNA SOLICITUD · EL MISMO CORREO", padding=12)
         form.pack(fill="x", pady=8)
         form.columnconfigure(1, weight=1)
         form.columnconfigure(3, weight=1)
@@ -150,7 +155,7 @@ class App:
         self.code_button.pack(side="left", padx=8)
 
         ttk.Label(body, textvariable=self.status, background=BG, foreground=GOLD, wraplength=930).pack(fill="x", pady=10)
-        progress = ttk.LabelFrame(body, text="3 · AVANCE VISIBLE", padding=8)
+        progress = ttk.LabelFrame(body, text="4 · AVANCE VISIBLE", padding=8)
         progress.pack(fill="x")
         self.table = ttk.Treeview(progress, columns=("paso", "estado"), show="headings", height=8)
         self.table.heading("paso", text="Paso")
@@ -256,6 +261,9 @@ class App:
             job.validate()
             automatic = self.mode.get() == "Outlook automático"
             password = self.password.get()
+            stored = self.accounts_panel.catalog.get(job.email)
+            if not password and stored:
+                password = stored.password
             if automatic and not password:
                 raise ValueError("Escribe la contraseña de Outlook para leer el código automáticamente.")
             save_config(self.folder, adb=client.executable, serial=client.serial, endpoint=self.endpoint.get())
@@ -263,6 +271,10 @@ class App:
             messagebox.showerror("Nueva solicitud", str(exc))
             return
         self.password.set("")
+        if automatic:
+            self.accounts_panel.catalog.merge([Account(job.email, password)])
+            self.accounts_panel.catalog.omitted.discard(job.email.casefold())
+            self.accounts_panel.refresh()
         self.pin.set("")
         self.code.set("")
         self.selected_stage = None
@@ -270,6 +282,11 @@ class App:
         for key, title in STAGES:
             self.table.item(key, values=(title, "Pendiente"))
         mailbox = OutlookMailbox(password, self.cancelled) if automatic else ManualMailbox(self.ask_code)
+        if automatic:
+            def record_mail(address, result, detail):
+                self.history.record_mail(address, result, detail)
+                self.events.put(("mail_refresh", None))
+            mailbox.record = record_mail
         lock = device_lock(self.folder, client.serial)
 
         def run():
@@ -336,7 +353,7 @@ class App:
             try:
                 self.history.export(path)
                 self.status.set("Registro exportado. No contiene contraseñas, PIN ni códigos.")
-            except OSError:
+            except (OSError, ValueError):
                 messagebox.showerror("Registro", "No se pudo guardar el archivo. Revisa la carpeta de destino.")
 
     def drain(self):
@@ -346,7 +363,9 @@ class App:
                 kind, value = self.events.get_nowait()
             except queue.Empty:
                 break
-            if kind == "devices":
+            if kind == "mail_refresh":
+                self.accounts_panel.refresh()
+            elif kind == "devices":
                 self.device_map = {f"{d.serial} · {d.state}" + (f" · {d.model}" if d.model else ""): d.serial for d in value}
                 self.device_combo.configure(values=tuple(self.device_map))
                 online = [d.serial for d in value if d.state == "device"]
