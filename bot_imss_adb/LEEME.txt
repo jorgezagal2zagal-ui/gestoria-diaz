@@ -1,0 +1,63 @@
+GESTORÍA DÍAZ · BOT NUEVO ADB V1
+
+Este es un programa independiente. No reemplaza el bot anterior ni comparte
+sus cuentas, historial, configuración, instancias o contraseñas.
+
+INICIO EN WINDOWS
+1. Extrae TODO el ZIP en una carpeta estable. No abras el BAT dentro del ZIP.
+2. Abre ABRIR_BOT.bat. Requiere Python 3.11 o posterior con Tcl/Tk.
+   La primera vez instala Selenium; requiere Internet, Chrome o Edge.
+3. Enciende tu emulador y activa la depuración ADB en su configuración.
+4. Elige adb.exe. En LDPlayer suele estar junto a ldconsole.exe, por ejemplo:
+   D:\LDPlayer\LDPlayer14\adb.exe
+5. Pulsa Detectar emuladores, elige el dispositivo y pulsa Probar conexión ADB.
+   Si no aparece, usa su puerto ADB local real (ej.: 127.0.0.1:5555).
+   El puerto es opcional: no lo cambies si ya aparece el dispositivo.
+6. Escribe CURP, correo y contraseña de Outlook. El PIN de Android es opcional;
+   indícalo solo si tu instancia lo requiere. No se usa un PIN predeterminado.
+7. Elige los trámites y pulsa INICIAR SOLICITUD.
+
+FLUJO
+- Prueba ADB, Android e instalación de IMSS Digital.
+- Abre Outlook, entra a la bandeja y prepara la referencia de mensajes antiguos.
+- Abre IMSS por ADB y usa exactamente el mismo correo.
+- Lee únicamente un código nuevo verificable del IMSS. Nunca escribe el código
+  en el registro, ni usa un código de un mensaje antiguo.
+- Escribe y comprueba los seis dígitos antes de pulsar Verificar.
+- Gestiona NSS, vigencia y semanas, en ese orden, según lo que hayas marcado.
+- Pulsa cada envío una sola vez y espera confirmación explícita de IMSS.
+- Cierra sesión solo después de confirmar todos los trámites seleccionados.
+
+SEMANAS COTIZADAS
+En el video se abre este trámite y se pulsa Continuar, pero no se observa
+el resultado final. El bot hace esos pasos y busca una confirmación real.
+Si aparece un portal externo, una pantalla desconocida o no hay confirmación,
+deja el resultado para revisión y conserva la pantalla para que continúes.
+No declara éxito ni repite un envío por su cuenta.
+
+INDEPENDENCIA Y RECUPERACIÓN
+- Una solicitud activa por ventana. Dos ventanas de este bot no pueden controlar
+  el mismo dispositivo a la vez; puedes elegir otro dispositivo en otra ventana.
+- No ejecutes el bot anterior sobre el mismo emulador al mismo tiempo.
+- No crea, elimina, renombra ni enciende instancias de LDPlayer.
+- No reinicia ni mata el servidor ADB: no desconecta otros dispositivos.
+- Si ADB queda offline, no autorizado o se agota un tiempo, detiene la solicitud
+  con un mensaje visible. No salta a otro emulador ni repite trámites.
+- Una sesión IMSS que ya estaba abierta se conserva y requiere cierre manual.
+- El cambio de dispositivo se acepta solo si marcas la autorización del panel.
+- No automatiza verificaciones adicionales de Microsoft ni CAPTCHA.
+- Detener espera a que termine el comando ADB/navegador en curso.
+- Código manual está disponible como respaldo; no necesita Selenium.
+
+REGISTRO
+Exportar registro guarda fecha, CURP, correo, dispositivo y resultado de cada
+solicitud/trámite. Son datos personales: elige una carpeta de tu confianza.
+No se guardan contraseñas, PIN, códigos ni cuerpos de los correos.
+Los datos están en %LOCALAPPDATA%\GestoriaDiazAdbNuevo.
+Después de un cierre inesperado, una solicitud queda como interrumpida para
+revisión; no se repite automáticamente.
+
+PRUEBAS Y LÍMITES
+Consulta VALIDACION.txt. Las pruebas usan dispositivos/correos/pantallas
+simulados. No se ha ejecutado un trámite real en tu Windows o LDPlayer.
+Los controles de pantalla pueden variar entre versiones de IMSS/Android.

@@ -1,0 +1,42 @@
+VALIDACIÓN · BOT NUEVO IMSS ADB V1
+
+31 pruebas unitarias y de integración local: PASARON.
+- Selección explícita del serial ADB, escape de comandos Android y tiempos límite.
+- Equipos offline/no autorizados, arranque incompleto, falta de IMSS y cancelación.
+- Lectura XML nueva por operación; no se reutiliza una captura anterior.
+- Bandeja antes de IMSS, mismo correo y código nuevo ligado a la solicitud.
+- Código con ceros iniciales; recuperación de un dígito omitido; lectura real
+  de las seis casillas; código rechazado sin iniciar trámites.
+- Confirmaciones negativas, futuras o para otro destinatario rechazadas.
+- Envíos sin confirmación no se repiten ni se marcan exitosos.
+- Portal externo de semanas queda para revisión, con pantalla conservada.
+- Sesión previa conservada, PIN no adivinado y cierre de sesión comprobado.
+- Historial/configuración sin PIN, contraseña ni códigos; bloqueo por dispositivo
+  y recuperación de cierres inesperados sin alterar otra ventana activa.
+
+32 pruebas del lector en Chromium real con Outlook SIMULADO: PASARON.
+Incluyen fechas, remitente, iframe, pestañas Prioritarios/Otros, carga tardía,
+mensajes antiguos, código ambiguo y atributos nativos de Outlook.
+Se usó el lector incluido en este ZIP; no se contactó a Microsoft.
+
+1 integración adicional del flujo NUEVO con Chromium y lector reales: PASÓ.
+El correo nuevo se incorpora a la bandeja simulada al pulsar Iniciar sesión
+en el Android simulado. Se lee el código, se verifican sus seis dígitos y
+se completan los tres trámites y el cierre de sesión simulados con el mismo correo.
+
+3 escenarios del panel Tk REAL, servicios ADB/Outlook SIMULADOS: PASARON.
+- Automático: detección, código, NSS, vigencia, semanas y cierre de sesión.
+- Manual: recepción del código por el panel y mismo flujo.
+- Fallo de correo: registro para revisión sin iniciar sesión en IMSS.
+
+Ruff (errores F) y comprobación de espacios Git: PASARON.
+Inspección visual del panel en pantalla virtual: REALIZADA.
+
+LÍMITES
+No se probó con un emulador Android real, LDPlayer/Windows, una cuenta Microsoft
+real o una solicitud IMSS real. Las pruebas no prueban disponibilidad del servicio
+ni cubren todas las variantes de pantalla. El video no muestra la finalización
+de semanas cotizadas; no se afirma que ese trámite quede completado.
+El bot se detiene ante una pantalla desconocida o falta de confirmación.
+
+La versión anterior y su ZIP V6.1 permanecen sin cambios.
